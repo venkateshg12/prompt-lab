@@ -22,5 +22,6 @@ One entry per correction or surprise: **pattern → rule that prevents it**.
 
 - **Logging (Phase 02):** log `runId`, `jobId`, `variantId`, `exampleId` (the ref, e.g. `jp_017`), statuses, scores, counts and durations; **never** an input, an output, a rendered prompt or a key. The redact list is the backstop, not the rule.
 - **Prisma with zero models (Phase 03):** `generate` works, but the copied tenant extension's `$allModels` callback types collapse to `never`, so `tsc` fails in `src/db/prisma.ts` until the first model exists. Do not patch the COPY file: Phase 03 is 🟡 on typecheck until Phase 04's models land.
+- **`pnpm db:migrate:dev --name x` (Phase 04):** pnpm appends extra args to the *end* of the script string, so with `prisma migrate dev && prisma generate` the `--name` went to `generate` and `migrate dev` hung on a name prompt. The script is now `sh -c 'prisma migrate dev "$@" && prisma generate' --`. Never `pkill -f <pattern>` from the tool shell: its own command line matches and it kills itself (exit 144); find the pid by port with `ss -ltnp`.
 
 _(add as you go)_

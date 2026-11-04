@@ -8,6 +8,7 @@ import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestId } from "./middleware/requestId";
 import { isDbHealthy } from "./config/db";
+import { authRoutes } from "./routes/auth.route";
 
 /*
   Builds the Express app with no side effects: no listen, no DB connection. index.ts runs it;
@@ -43,6 +44,7 @@ export const createApp = () => {
     });
 
     // Routes are registered here, phase by phase.
+    app.use("/auth", authRoutes);
 
     app.use(notFound);
     app.use(errorHandler);

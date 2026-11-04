@@ -5,6 +5,7 @@ import { BAD_REQUEST, INTERNAL_SERVER_ERROR, PAYLOAD_TOO_LARGE } from "../consta
 import { appErrorCode } from "../constants/appErrorCode";
 import z from "zod";
 import { logger } from "../utils/logger";
+import { clearAuthCookies, REFRESH_PATH } from "../utils/auth";
 
 /*
   Validation failures stay inside the envelope like every other error, with the field path on each
@@ -37,7 +38,9 @@ export function errorHandler(
     if ((error as { type?: string })?.type === "entity.too.large") {
         return res.status(PAYLOAD_TOO_LARGE).json(fail("Request body too large", appErrorCode.ValidationError));
     }
-    // Phase 04: clear auth cookies on the refresh path
+    if (_req.path === REFRESH_PATH) {
+        clearAuthCookies(res);
+    }
     if (error instanceof AppError) {
         if (error.statusCode >= 500) {
             logger.error({ err: error }, error.message);

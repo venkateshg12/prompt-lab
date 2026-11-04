@@ -19,3 +19,73 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ── Enums ────────────────────────────────────────────────────────────────────────────────────────
+
+enum AuthProvider {
+  local
+  google
+}
+
+enum PlatformRole {
+  user
+  admin
+}
+
+// ── Identity (Phase 04) ──────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  name         String?
+  // Normalised to lower case on write, so "Foo@x.com" and "foo@x.com" can't become two accounts.
+  email        String       @unique
+  // bcrypt hash. Null only for Google accounts.
+  password     String?
+  googleId     String?      @unique @map("google_id")
+  authProvider AuthProvider @default(local) @map("auth_provider")
+  avatar       String?
+  role         PlatformRole @default(user)
+  verified     Boolean      @default(false)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions          Session[]
+  verificationLinks VerificationLink[]
+
+  @@map("users")
+}
+
+model Session {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  userAgent      String?   @map("user_agent")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  // Refresh-token rotation: only the jti issued last is valid; the previous one is honoured for a
+  // short grace window so two tabs refreshing at the same moment don't revoke the session.
+  refreshJti     String?   @map("refresh_jti")
+  prevRefreshJti String?   @map("prev_refresh_jti")
+  rotatedAt      DateTime? @map("rotated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model VerificationLink {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  token     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("verification_links")
+}
