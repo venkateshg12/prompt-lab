@@ -23,3 +23,5 @@ export const LOG_LEVEL = getEnv("LOG_LEVEL", "info");
 export const SERVICE_NAME = getEnv("SERVICE_NAME", "api");
 // "false" in production, where src/worker.ts runs as its own process.
 export const RUN_WORKERS_IN_API = getEnv("RUN_WORKERS_IN_API", "true");
+// postgresql://user:password@host:5432/db. Hosted (Neon): add ?sslmode=require.
+export const DATABASE_URL = getEnv("DATABASE_URL");

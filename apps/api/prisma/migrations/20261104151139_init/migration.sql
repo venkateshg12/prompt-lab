@@ -1,0 +1,1 @@
+-- Baseline. Tables arrive one phase at a time (docs/reference/data-model.md, "Which phase adds what").

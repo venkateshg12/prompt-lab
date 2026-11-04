@@ -1,0 +1,21 @@
+// Prompt Lab's data model on PostgreSQL. Every tenant-owned table carries `org_id` (a workspace is
+// an org); the tenant extension in src/db/prisma.ts scopes every query to the caller's workspace
+// (TENANT_MODELS there). Full target model: docs/reference/data-model.md.
+//
+// Conventions
+// - Ids are UUIDv7 (`uuid(7)`): unique and time-ordered, so (created_at, id) cursors stay cheap.
+// - Tables and columns are snake_case in the database; Prisma fields stay camelCase.
+// - Model cost is integer micro-dollars; running totals that can pass 2^31 are BigInt.
+// - Raw model output is stored exactly as returned. Nothing here repairs it.
+// - No TTL indexes: expiring rows carry expires_at, reads check it, purge-expired deletes them.
+// - Copied models keep PaperTrail's names. Rename nothing for style.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

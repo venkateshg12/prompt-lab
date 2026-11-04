@@ -7,6 +7,7 @@ import { ok } from "./utils/api";
 import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestId } from "./middleware/requestId";
+import { isDbHealthy } from "./config/db";
 
 /*
   Builds the Express app with no side effects: no listen, no DB connection. index.ts runs it;
@@ -33,9 +34,12 @@ export const createApp = () => {
     app.use(cookieParser());
 
     // Health first, so routers that call router.use(authenticate) can never shadow it.
-    app.get("/health", (_req, res) => {
-        // Phase 03: database. Phases 06–07: redis, cache.
-        res.status(200).json(ok({ status: "ok" }));
+    app.get("/health", async (_req, res) => {
+        const dbUp = await isDbHealthy();
+        // Phases 06–07: redis and cache are reported here but never gate the status code.
+        return res.status(dbUp ? 200 : 503).json(
+            ok({ status: dbUp ? "ok" : "degraded", database: dbUp ? "up" : "down" })
+        );
     });
 
     // Routes are registered here, phase by phase.

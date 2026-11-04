@@ -3,9 +3,10 @@ import "dotenv/config";
 import { PORT, RUN_WORKERS_IN_API } from "./constants/env";
 import { createApp } from "./app";
 import { logger } from "./utils/logger";
+import { connectDB, disconnectDB } from "./config/db";
 
 async function main() {
-    // Phase 03: await connectDB() / disconnectDB()
+    await connectDB();
     let closeWorkers: (() => Promise<void>) | undefined;
     if (RUN_WORKERS_IN_API !== "false") {
         // Dynamic on purpose: a static import would start the workers even with RUN_WORKERS_IN_API=false.
@@ -55,7 +56,7 @@ async function main() {
             }
             // Phase 17: await closePubSub()
             // Phase 07: await cache.close()
-            // Phase 03: await disconnectDB()
+            await disconnectDB();
             // Phase 29: await flushObservability()
             logger.info("[shutdown] complete");
             process.exit(0);

@@ -41,3 +41,10 @@ export const setRequestContext = (fields: Partial<RequestContext>) => {
     if (store) Object.assign(store, fields);
 };
 
+
+/*
+  For code that already knows the org (a published run's orgId, a CLI flag) and must stay
+  tenant-scoped: runs `fn` with that org in the request context, outside system scope.
+ */
+export const withOrgScope = <T>(orgId: string, fn: () => Promise<T>): Promise<T> =>
+    runWithRequestContext({ ...(getRequestContext() ?? { requestId: "scope" }), orgId, systemScope: false }, fn);
