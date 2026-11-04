@@ -43,8 +43,13 @@ export const promptBodySchema = z
         notes: z.string().max(4000).nullable().optional(),
     })
     .refine((p) => p.technique !== "few_shot" || p.fewShotExampleIds.length > 0, "few_shot needs examples")
+    // A few_shot prompt without {{examples}} sends its examples as prior user/assistant turns (Phase 15,
+    // multi-turn style). Any other technique that attaches examples must say where they go.
     .refine(
-        (p) => p.fewShotExampleIds.length === 0 || /{{\s*examples\s*}}/.test(p.system + p.template),
+        (p) =>
+            p.fewShotExampleIds.length === 0 ||
+            p.technique === "few_shot" ||
+            /{{\s*examples\s*}}/.test(p.system + p.template),
         "Examples are attached but {{examples}} is not used"
     );
 export type PromptBody = z.infer<typeof promptBodySchema>;

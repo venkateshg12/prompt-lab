@@ -1,3 +1,4 @@
+import { toGeminiSchema } from "@repo/scoring";
 import type { Provider } from "../types";
 import { httpError } from "../errors";
 import { GEMINI_BASE_URL } from "../../constants/env";
@@ -8,8 +9,11 @@ export const geminiProvider: Provider = {
     async complete(model, req, apiKey) {
         const generationConfig: Record<string, unknown> = { temperature: req.temperature, maxOutputTokens: req.maxTokens };
         if (req.structured) {
-            generationConfig.responseMimeType = "application/json";
-            generationConfig.responseJsonSchema = req.structured.schema; // Phase 15 strips unsupported keywords
+            // Current docs (checked 4 Nov 2026, ai.google.dev structured-output): responseFormat.text. The older
+            // responseMimeType/responseSchema form is the previous generation of this API.
+            generationConfig.responseFormat = {
+                text: { mimeType: "APPLICATION_JSON", schema: toGeminiSchema(req.structured.schema) },
+            };
         }
         const res = await fetch(`${GEMINI_BASE_URL}/v1beta/models/${encodeURIComponent(model.modelId)}:generateContent`, {
             method: "POST",

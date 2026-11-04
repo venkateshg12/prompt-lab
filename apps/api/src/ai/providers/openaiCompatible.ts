@@ -1,3 +1,4 @@
+import { toNimGuided, toOpenAiStrict } from "@repo/scoring";
 import type { Provider } from "../types";
 import { httpError } from "../errors";
 
@@ -19,11 +20,11 @@ export const createOpenAiCompatible = (baseUrl: string): Provider => ({
         };
         if (req.structured) {
             if (model.provider === "nvidia") {
-                body.nvext = { guided_json: req.structured.schema }; // providers.md §2; probed in Phase 15
+                body.nvext = { guided_json: toNimGuided(req.structured.schema) }; // providers.md §2; probed by probe-structured
             } else {
                 body.response_format = {
                     type: "json_schema",
-                    json_schema: { name: req.structured.name, strict: true, schema: req.structured.schema },
+                    json_schema: { name: req.structured.name, strict: true, schema: toOpenAiStrict(req.structured.schema) },
                 };
             }
         }

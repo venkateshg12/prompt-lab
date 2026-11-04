@@ -3,12 +3,11 @@ import { prisma, type DbOrTx, type Tx } from "../db/prisma";
 import { isUniqueViolation } from "../db/errors";
 import { recordAudit, type AuditActor } from "./audit.service";
 import { getTask } from "./task.service";
-import { renderPrompt } from "../prompts/render";
+import { renderPrompt } from "@repo/scoring";
 import appAssert from "../utils/errors/appAssert";
 import { BAD_REQUEST, CONFLICT, NOT_FOUND } from "../constants/https";
 import { cache } from "../utils/cache";
 import {
-    MAX_TOKENS_BY_TECHNIQUE,
     promptBodySchema,
     type NewVersionBody,
     type PromptBody,
@@ -116,16 +115,19 @@ export const freezePromptVersions = async (tx: Tx, taskId: string, ids: string[]
     return prompts;
 };
 
-/** Exactly what the model will see for one example. */
-export const previewPrompt = async (taskId: string, id: string, exampleId: string) => {
+/** Exactly what the model will see for one example (the same renderer the runner uses). */
+export const previewPrompt = async (taskId: string, id: string, target: { exampleId?: string; exampleRef?: string }) => {
     const [task, p] = await Promise.all([getTask(taskId), getPrompt(taskId, id)]);
-    const example = await prisma.example.findFirst({ where: { id: exampleId, taskId } });
+    const example = await prisma.example.findFirst({
+        where: { taskId, ...(target.exampleId ? { id: target.exampleId } : { ref: target.exampleRef }) },
+    });
     appAssert(example, NOT_FOUND, "Example not found");
     const shots = await prisma.example.findMany({ where: { id: { in: p.fewShotExampleIds } } });
     const ordered = p.fewShotExampleIds.map((sid) => shots.find((s) => s.id === sid)).filter((s) => s !== undefined);
-    return {
-        ...renderPrompt(p, task, example.input, ordered.map((s) => ({ input: s.input, expected: s.expected }))),
-        maxTokens: MAX_TOKENS_BY_TECHNIQUE[p.technique],
-        // Phase 15: technique wrappers (CoT tag instruction, structured schema) shown here too.
-    };
+    return renderPrompt({
+        prompt: p,
+        task,
+        input: example.input,
+        fewShots: ordered.map((s) => ({ ref: s.ref, split: s.split, input: s.input, expected: s.expected })),
+    });
 };

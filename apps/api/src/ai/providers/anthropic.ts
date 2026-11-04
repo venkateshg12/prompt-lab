@@ -1,3 +1,4 @@
+import { toAnthropicSchema } from "@repo/scoring";
 import type { Provider } from "../types";
 import { httpError } from "../errors";
 import { ANTHROPIC_BASE_URL } from "../../constants/env";
@@ -13,7 +14,7 @@ export const anthropicProvider: Provider = {
             max_tokens: req.maxTokens,
             temperature: req.temperature,
         };
-        if (req.structured) body.output_config = { format: { type: "json_schema", schema: req.structured.schema } };
+        if (req.structured) body.output_config = { format: { type: "json_schema", schema: toAnthropicSchema(req.structured.schema) } };
         const res = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
             method: "POST",
             headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },

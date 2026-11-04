@@ -79,6 +79,11 @@ export const listEnabledModels = async () => {
 
 export const getModelByKey = (key: string) => prisma.model.findUnique({ where: { key } });
 
+/** Written only by the probe (Phase 15). `untested` is never written over a real result. */
+export const setStructuredSupport = async (key: string, structured: "supported" | "unsupported", mode: string, at: Date) => {
+    await prisma.model.updateMany({ where: { key }, data: { structured, structuredMode: mode, structuredProbedAt: at } });
+};
+
 /** A 410 means the provider retired this id: the launcher stops offering it. */
 export const markRetired = async (key: string) => {
     await prisma.model.updateMany({ where: { key }, data: { active: false } });

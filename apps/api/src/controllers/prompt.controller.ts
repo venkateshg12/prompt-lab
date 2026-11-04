@@ -47,6 +47,9 @@ export const duplicateHandler = catchError(async (req, res) => {
 });
 
 export const previewHandler = catchError(async (req, res) => {
-    const exampleId = z.object({ exampleId: idSchema("example id") }).parse(req.query).exampleId;
-    res.status(OK).json(ok(await previewPrompt(taskId(req), promptId(req), exampleId)));
+    const target = z
+        .object({ exampleId: idSchema("example id").optional(), exampleRef: z.string().min(1).max(64).optional() })
+        .refine((q) => q.exampleId || q.exampleRef, "exampleId or exampleRef is required")
+        .parse(req.query);
+    res.status(OK).json(ok(await previewPrompt(taskId(req), promptId(req), target)));
 });
