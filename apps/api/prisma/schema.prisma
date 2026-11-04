@@ -45,6 +45,11 @@ enum InviteRole {
   viewer
 }
 
+enum Split {
+  dev
+  test
+}
+
 enum ActorType {
   user
   api_key
@@ -197,9 +202,35 @@ model Task {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  // Phase 12: examples · Phase 13: prompts · Phase 17: runs
+  org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  examples Example[]
+  // Phase 13: prompts · Phase 17: runs
 
   @@unique([orgId, slug])
   @@map("tasks")
+}
+
+model Example {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  taskId          String   @map("task_id") @db.Uuid
+  ref             String // "jp_017": stable, exported as exampleId
+  split           Split
+  tags            String[] @default([])
+  input           String
+  expected        Json
+  publicInput     Boolean  @default(true) @map("public_input") // false → hidden on published pages
+  secondLabel     Json?    @map("second_label") // the double-check
+  secondLabelById String?  @map("second_label_by") @db.Uuid
+  notes           String?
+  revision        Int      @default(1) // bumped on every expected/input edit
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // Phase 17: results Result[]
+
+  @@unique([taskId, ref])
+  @@index([taskId, split])
+  @@map("examples")
 }

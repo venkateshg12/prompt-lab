@@ -102,6 +102,9 @@ export const createApp = () => {
 
     // 256 kB covers every JSON request this API takes. The test-set import route (Phase 12)
     // mounts its own larger parser for JSONL/CSV files, so only that route accepts big bodies.
+    // The test-set import takes files up to 3 MB; its parser is mounted FIRST, because the global one
+    // would answer 413 before the route ever ran.
+    app.use("/orgs/:orgId/tasks/:taskId/examples/import", express.json({ limit: "3mb" }));
     app.use(express.json({ limit: "256kb" }));
     app.use(cookieParser());
     app.use(visitorIdMiddleware);

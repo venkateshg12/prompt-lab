@@ -1,9 +1,10 @@
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../db/prisma";
 import { runAsSystem, runWithRequestContext } from "../utils/requestContext";
 import { createTask, updateTask } from "../services/task.service";
+import { importExamples } from "../services/example.service";
 import { cache } from "../utils/cache";
 import { getQueueRedis } from "../config/redis";
 import { createTaskSchema } from "@repo/types";
@@ -69,7 +70,26 @@ const main = async () => {
             console.log(same ? "task unchanged" : dryRun ? "would update task" : "updated task", body.slug);
             if (!same && !dryRun) await updateTask(orgId, existing.id, update, actor);
         }
-        // Phase 12: examples from data/*.jsonl. Phase 13: prompts from prompts/*.md.
+
+        // Examples: every data/*.jsonl through the same service the API uses. Any invalid row aborts.
+        const task = await prisma.task.findFirst({ where: { slug: body.slug } });
+        const dataDir = path.join(dir, "data");
+        const files = (await readdir(dataDir).catch(() => [])).filter((f) => f.endsWith(".jsonl")).sort();
+        for (const file of files) {
+            if (!task) {
+                console.log(`would import ${file} (task not created in a dry run)`);
+                continue;
+            }
+            const content = await readFile(path.join(dataDir, file), "utf8");
+            const preview = await importExamples(orgId, task.id, { format: "jsonl", content, dryRun: true }, actor);
+            console.log(`${file}: ${preview.valid} valid, ${preview.invalid.length} invalid, new ${preview.new}, changed ${preview.changed}, unchanged ${preview.unchanged}`);
+            if (preview.invalid.length > 0) {
+                for (const bad of preview.invalid.slice(0, 20)) console.error(`  line ${bad.line}${bad.ref ? ` (${bad.ref})` : ""}: ${bad.issues.join("; ")}`);
+                throw new Error(`${file} has invalid rows; nothing was imported`);
+            }
+            if (!dryRun) await importExamples(orgId, task.id, { format: "jsonl", content, dryRun: false }, actor);
+        }
+        // Phase 13: prompts from prompts/*.md.
     });
 };
 

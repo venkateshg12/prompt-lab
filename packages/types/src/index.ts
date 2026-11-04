@@ -6,3 +6,4 @@ export * from "./cookie";
 export * from "./org";
 export * from "./fieldRules";
 export * from "./task";
+export * from "./caseLine";
