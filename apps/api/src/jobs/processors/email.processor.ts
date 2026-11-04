@@ -1,14 +1,14 @@
 import { Job, UnrecoverableError } from "bullmq";
 import { z } from "zod";
-import { PasswordResetPayload, VerifyEmailPayload } from "../interfaces/jobPayload";
-import { getPasswordResetEmail, getVerificationEmail } from "../../utils/email";
+import { OrgInvitePayload, PasswordResetPayload, VerifyEmailPayload, orgInvitePayloadSchema } from "../interfaces/jobPayload";
+import { getOrgInviteEmail, getPasswordResetEmail, getVerificationEmail } from "../../utils/email";
 import { sendEmail } from "../../services/gmail.service";
 import { AppError } from "../../utils/errors";
 import { appErrorCode } from "../../constants/appErrorCode";
 import { GMAIL_REFRESH_TOKEN, NODE_ENV } from "../../constants/env";
 import { BAD_REQUEST, TOO_MANY_REQUESTS } from "../../constants/https";
 import { logger } from "../../utils/logger";
-import { runWithRequestContext } from "../../utils/requestContext";
+import { runWithRequestContext, runAsSystem } from "../../utils/requestContext";
 import { prisma } from "../../db/prisma";
 import { isUuid } from "../../db/errors";
 
@@ -53,7 +53,8 @@ const deliver = async (to: string, content: EmailContent) => {
             createdAt: new Date(),
         });
         if (devMailbox.length > 100) devMailbox.shift();
-        logger.warn({ to: "[dev]", subject: content.subject, body: content.text }, "[dev] email not sent (Gmail not authorized)");
+        // The body holds the link (and its token): never logged. Read it from GET /auth/dev/latest-link.
+        logger.warn({ to: "[dev]", subject: content.subject }, "[dev] email not sent (Gmail not authorized)");
         return { messageId: "dev-console" };
     }
     try {
@@ -120,6 +121,31 @@ export async function processPasswordReset(job: Job<PasswordResetPayload>) {
         job.log(`[Gmail] Delivering password reset email to ${email}`);
         const { messageId } = await deliver(email, getPasswordResetEmail(resetToken));
         job.log(`[Success] Password reset email delivered to ${email}`);
+        return { status: "sent", deliveredAt: new Date().toISOString(), messageId };
+    });
+}
+
+export async function processOrgInvite(job: Job<OrgInvitePayload>) {
+    return runWithRequestContext({ requestId: job.id! }, async () => {
+        const parsed = orgInvitePayloadSchema.safeParse(job.data);
+        if (!parsed.success) {
+            throw new UnrecoverableError(`Malformed job payload: ${parsed.error.message}`);
+        }
+        const { inviteId, email, orgName, role, token } = parsed.data;
+
+        job.log(`[Start] Sending Org Invite to ${email} for ${orgName} as ${role}`);
+
+        const invite = isUuid(inviteId)
+            ? await runAsSystem(() => prisma.invite.findUnique({ where: { id: inviteId } }))
+            : null;
+        if (!invite) {
+            job.log(`[OrgInvite] Invite ${inviteId} no longer exists. Aborting.`);
+            return { status: "skipped", reason: "Invite not found or revoked" };
+        }
+
+        job.log(`[Gmail] Delivering org invite email to ${email}`);
+        const { messageId } = await deliver(email, getOrgInviteEmail(token, orgName, role));
+        job.log(`[Success] Org invite email delivered to ${email}`);
         return { status: "sent", deliveredAt: new Date().toISOString(), messageId };
     });
 }

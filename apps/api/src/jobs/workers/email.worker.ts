@@ -1,7 +1,7 @@
 import { Job, Worker } from "bullmq";
 import { JOB_NAMES, QUEUE_NAMES } from "../../constants/queue";
-import { processPasswordReset, processVerifyEmail } from "../processors/email.processor";
-import { PasswordResetPayload, VerifyEmailPayload } from "../interfaces/jobPayload";
+import { processOrgInvite, processPasswordReset, processVerifyEmail } from "../processors/email.processor";
+import { OrgInvitePayload, PasswordResetPayload, VerifyEmailPayload } from "../interfaces/jobPayload";
 import { redisConnection } from "../redis/connection";
 import { onFinalFailure } from "../deadLetter";
 import { logger } from "../../utils/logger";
@@ -14,7 +14,9 @@ export const emailWorker = new Worker(
                 return await processVerifyEmail(job as Job<VerifyEmailPayload>);
             case JOB_NAMES.EMAIL.PASSWORD_RESET:
                 return await processPasswordReset(job as Job<PasswordResetPayload>);
-            // Phase 10: ORG_INVITE · Phase 17: RUN_FINISHED
+            case JOB_NAMES.EMAIL.ORG_INVITE:
+                return await processOrgInvite(job as Job<OrgInvitePayload>);
+            // Phase 17: RUN_FINISHED
             default:
                 throw new Error(`Unknown job name: ${job.name}`);
         }

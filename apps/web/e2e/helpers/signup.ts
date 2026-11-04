@@ -9,21 +9,27 @@ export interface TestUser {
 
 const apiUrl = () => process.env.API_BASE_URL || "http://127.0.0.1:5000";
 
-/** Polls the API's dev mailbox for the last email sent to `email` (non-production only). */
-export async function waitForDevMail(page: Page, email: string) {
-  for (let attempt = 0; attempt < 25; attempt++) {
+/**
+ * Polls the API's dev mailbox for the last email sent to `email` (non-production only). `match`
+ * narrows it to one kind of mail by its link, e.g. /\/invites#token=/ or /\/auth\/verify\//.
+ */
+export async function waitForDevMail(page: Page, email: string, match?: RegExp) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     try {
       const res = await fetch(`${apiUrl()}/auth/dev/latest-link?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const body = (await res.json()) as { email?: { token?: string; link?: string } };
-        if (body?.email?.token) return body.email as { token: string; link?: string };
+        const entry = body?.email;
+        if (entry?.link && (!match || match.test(entry.link))) {
+          return entry as { token?: string; link: string };
+        }
       }
     } catch {
       // API might be spinning up
     }
     await page.waitForTimeout(400);
   }
-  throw new Error(`No dev mail for ${email} from ${apiUrl()}/auth/dev/latest-link`);
+  throw new Error(`No dev mail for ${email} matching ${match ?? "anything"} from ${apiUrl()}/auth/dev/latest-link`);
 }
 
 export async function signupAndVerify(page: Page, overrides: Partial<TestUser> = {}): Promise<TestUser> {
@@ -40,7 +46,7 @@ export async function signupAndVerify(page: Page, overrides: Partial<TestUser> =
   await page.fill("#confirmPassword", password);
   await page.click("button[type='submit']");
 
-  const mail = await waitForDevMail(page, email);
+  const mail = await waitForDevMail(page, email, /\/auth\/verify\//);
   await page.goto(`/auth/verify/${mail.token}`);
 
   // Verification signs the user in and redirects to the app; otherwise it asks for a login.

@@ -9,11 +9,11 @@ import { runAsSystem } from "../../utils/requestContext";
  */
 export async function processPurgeExpired(now = new Date()) {
     return runAsSystem(async () => {
-        const [sessions, verificationLinks] = await Promise.all([
+        const [sessions, verificationLinks, invites] = await Promise.all([
             prisma.session.deleteMany({ where: { expiresAt: { lt: now } } }),
             prisma.verificationLink.deleteMany({ where: { expiresAt: { lt: now } } }),
-            // Phase 10: expired invites
+            prisma.invite.deleteMany({ where: { expiresAt: { lt: now } } }),
         ]);
-        return { sessions: sessions.count, verificationLinks: verificationLinks.count };
+        return { sessions: sessions.count, verificationLinks: verificationLinks.count, invites: invites.count };
     });
 }

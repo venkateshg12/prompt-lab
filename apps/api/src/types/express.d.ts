@@ -1,4 +1,5 @@
 import type { User } from "../generated/prisma/client";
+import type { OrgRole } from "@repo/types";
 
 declare global {
     namespace Express {
@@ -7,9 +8,9 @@ declare global {
             sessionId: string;
             role: User["role"];
             visitorId?: string;
-            // Set by resolveOrg (Phase 10); declared now because the invite limiter keys on it.
+            // Set by resolveOrg.
             orgId: string;
-            // Phase 10: orgRole.
+            orgRole: OrgRole;
         }
     }
 }

@@ -1,15 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { useAuthStore } from "@/store/auth.store";
 import { useLogout } from "@/hooks/auth/useLogout";
+import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
+import { readPendingToken } from "@/lib/pendingInvite";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
   const { mutate: logout, isPending } = useLogout();
+  const router = useRouter();
+
+  // A visitor who came from an invitation link and had to sign in or register first goes back to it.
+  useEffect(() => {
+    if (user && readPendingToken()) router.replace("/invites");
+  }, [user, router]);
 
   return (
     <RequireAuth>
@@ -20,7 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link href="/tasks" className="text-xl font-bold tracking-tight text-foreground">
                 Prompt<span className="text-primary">Lab</span>
               </Link>
-              {/* Phase 10: <OrgSwitcher /> */}
+              <OrgSwitcher />
               <nav className="flex items-center gap-4 text-sm font-medium">
                 <Link href="/tasks" className="text-muted-foreground hover:text-foreground transition-colors">
                   Tasks

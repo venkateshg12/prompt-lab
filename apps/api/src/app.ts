@@ -22,6 +22,8 @@ import { visitorIdMiddleware } from "./middleware/visitorId";
 import { globalLimiter } from "./config/rateLimiter";
 import { authRoutes } from "./routes/auth.route";
 import sessionRoutes from "./routes/session.route";
+import { orgRouter } from "./routes/org.route";
+import { publicInviteRouter } from "./routes/invite.route";
 import { gmailRoutes } from "./routes/gmail.route";
 import { setupBullBoard } from "./jobs/dashboard/bull-board";
 
@@ -93,8 +95,8 @@ export const createApp = () => {
             origin: corsOrigin,
             credentials: true,
             // X-Lab-Visitor: the web app's per-browser visitor id (demo fairness key, Phase 06/23).
-            // Phase 10 adds X-Org-Id, Phase 23 X-Provider-Key.
-            allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Lab-Visitor"],
+            // X-Org-Id: the web client's selected workspace (Phase 10). Phase 23 adds X-Provider-Key.
+            allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Lab-Visitor", "X-Org-Id"],
         })
     );
 
@@ -149,6 +151,8 @@ export const createApp = () => {
     // Routes are registered here, phase by phase.
     app.use("/auth", authRoutes);
     app.use("/session", sessionRoutes);
+    app.use("/orgs", orgRouter);
+    app.use("/invites", publicInviteRouter);
 
     // The path is fixed by the redirect URI registered with Google (/api/auth/gmail/callback).
     app.use("/api/auth/gmail", gmailRoutes);

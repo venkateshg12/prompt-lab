@@ -25,6 +25,7 @@ export const DEMO_IP_PREFIX = "rl:demo:ip";
 export const DEMO_DAILY_PREFIX = "rl:demo:daily";
 export const PUBLIC_READ_PREFIX = "rl:public";
 export const INVITE_SOURCE_PREFIX = "rl:invite:source";
+export const INVITE_PREVIEW_PREFIX = "rl:invite:preview";
 export const INVITE_TARGET_PREFIX = "rl:invite:target";
 export const PROTECTED_API_PREFIX = "rl:protected";
 export const LOCKOUT_PREFIX = "rl:lockout";

@@ -9,7 +9,8 @@ export const JOB_NAMES = {
     EMAIL: {
         VERIFY_EMAIL: 'send_verify_email',
         PASSWORD_RESET: 'send_password_reset',
-        // Phase 10: ORG_INVITE · Phase 17: RUN_FINISHED
+        ORG_INVITE: 'send_org_invite',
+        // Phase 17: RUN_FINISHED
     },
     MAINTENANCE: {
         PURGE_EXPIRED: 'purge-expired',

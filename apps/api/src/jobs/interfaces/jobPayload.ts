@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface VerifyEmailPayload {
   userId: string;
   email: string;
@@ -10,4 +12,20 @@ export interface PasswordResetPayload {
   resetToken: string;
 }
 
-// Phase 10: OrgInvitePayload · Phase 17: RunFinishedPayload, RunCellPayload
+export interface OrgInvitePayload {
+  inviteId: string;
+  email: string;
+  orgName: string;
+  role: "admin" | "reviewer" | "viewer";
+  token: string;
+}
+
+export const orgInvitePayloadSchema = z.object({
+  inviteId: z.string().min(1),
+  email: z.string().email(),
+  orgName: z.string().min(1),
+  role: z.enum(["admin", "reviewer", "viewer"]),
+  token: z.string().min(1),
+});
+
+// Phase 17: RunFinishedPayload, RunCellPayload

@@ -7,6 +7,7 @@ import { INTERNAL_SERVER_ERROR, OK, UNAUTHORIZED } from "../constants/https";
 import { GOOGLE_CLIENT_ID } from "../constants/env";
 import { setAuthCookies } from "../utils/auth";
 import { createSessionAndTokens, revokeSessions } from "../services/auth.service";
+import { ensurePersonalOrg } from "../services/org.service";
 import { logger } from "../utils/logger";
 import { ok } from "../utils/api";
 
@@ -80,7 +81,7 @@ export const googleAuthHandler = catchError(async (req, res) => {
         });
     }
 
-    // Phase 10: no personal workspace; the web app sends a user with no memberships to onboarding.
+    await ensurePersonalOrg(user);
 
     const { accessToken, refreshToken } = await createSessionAndTokens(user, req.headers["user-agent"]);
 

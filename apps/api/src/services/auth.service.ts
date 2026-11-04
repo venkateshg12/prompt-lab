@@ -20,6 +20,8 @@ import {
 import { RefreshTokenPayload } from "../types/auth.types";
 import { toSafeUser, type UserRecord } from "../types/user.types";
 import { cache, sessionCacheKey } from "../utils/cache";
+import { withTransaction } from "../utils/db";
+import { createPersonalOrg } from "./org.service";
 import { EmailProducer } from "../jobs/producers/email.producer";
 
 /*
@@ -136,8 +138,13 @@ export const createAccount = async (data: CredentialSchema) => {
 
     const password = await hashValue(data.password);
 
-    // No personal workspace: owners create one, labellers join by invite (Phase 10).
-    const user = await prisma.user.create({ data: { name: data.name, email, password } });
+    // The user, their workspace and the owner membership commit together — an account without a
+    // workspace could never do anything. The email is enqueued only after the commit.
+    const user = await withTransaction(async (tx) => {
+        const created = await tx.user.create({ data: { name: data.name, email, password } });
+        await createPersonalOrg(created, tx);
+        return created;
+    });
 
     await issueEmailVerificationLink(user);
 

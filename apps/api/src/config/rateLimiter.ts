@@ -21,6 +21,7 @@ import {
     GLOBAL_IP_PREFIX,
     GLOBAL_VISITOR_PREFIX,
     INVITE_SOURCE_PREFIX,
+    INVITE_PREVIEW_PREFIX,
     INVITE_TARGET_PREFIX,
     ONE_DAY_MS,
     ONE_HOUR_MS,
@@ -248,6 +249,14 @@ export const inviteTargetLimiter = createRateLimiter({
     windowMs: ONE_DAY_MS,
     max: 3,
     keyResolver: emailKeyResolver
+});
+
+// Unauthenticated: the token is unguessable, but the endpoint is public, so cap it per IP.
+export const invitePreviewLimiter = createRateLimiter({
+    prefix: INVITE_PREVIEW_PREFIX,
+    windowMs: TEN_MINUTES_MS,
+    max: 30,
+    keyResolver: ipKeyResolver
 });
 
 /*

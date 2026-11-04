@@ -4,6 +4,7 @@ import { clearUserQueries } from "@/lib/queryClient";
 import { isServerUnavailable } from "@/lib/serverStatus";
 import { useAuthStore } from "@/store/auth.store";
 import { useServerStore } from "@/store/server.store";
+import { useOrgStore } from "@/store/org.store";
 import type { ApiError, RetryableRequestConfig, QueueItem } from "@/types";
 
 // A free-tier backend can take up to a minute to boot, so a request must outlast that.
@@ -39,9 +40,10 @@ API.interceptors.request.use((config) => {
       WAKE_NOTICE_DELAY_MS
     );
   }
-  // Phase 10: restore the X-Org-Id header with org.store.ts:
-  //   const orgId = useOrgStore.getState().selectedOrgId;
-  //   if (orgId) config.headers["X-Org-Id"] = orgId;
+  const orgId = useOrgStore.getState().selectedOrgId;
+  if (orgId) {
+    config.headers["X-Org-Id"] = orgId;
+  }
   // No Idempotency-Key header, for good: this API has no idempotency middleware
   // (inherited-architecture.md, "Deliberately not copied").
   return config;

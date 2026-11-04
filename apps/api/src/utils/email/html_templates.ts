@@ -194,3 +194,45 @@ export const emailVerificationTemplate = (verificationLink: string) => (
 </html>
 `
 );
+
+export const orgInviteTemplate = (inviteLink: string, orgName: string, role: string) => (
+    `<!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invitation to join ${orgName}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+    <td align="center" style="padding:40px 20px;">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+    <tr>
+    <td style="background:#111827;padding:30px;text-align:center;">
+    <h1 style="margin:0;color:#ffffff;">Prompt Lab</h1>
+    </td>
+    </tr>
+    <tr>
+    <td style="padding:40px;">
+    <h2 style="margin-top:0;color:#111827;">You've been invited!</h2>
+    <p style="color:#4b5563;font-size:16px;line-height:1.6;">
+    You have been invited to join <strong>${orgName}</strong> on Prompt Lab as a <strong>${role}</strong>.
+    </p>
+    <div style="text-align:center;margin:35px 0;">
+    <a href="${inviteLink}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;display:inline-block;font-weight:bold;">
+    Accept Invitation
+    </a>
+    </div>
+    <p style="color:#6b7280;font-size:14px;">
+    This invitation link will expire in 7 days and can only be accepted by this email address.
+    </p>
+    </td>
+    </tr>
+    </table>
+    </td>
+    </tr>
+    </table>
+    </body>
+    </html>`
+);

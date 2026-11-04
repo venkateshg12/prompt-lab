@@ -32,6 +32,25 @@ enum PlatformRole {
   admin
 }
 
+enum OrgRole {
+  owner
+  admin
+  reviewer
+  viewer
+}
+
+enum InviteRole {
+  admin
+  reviewer
+  viewer
+}
+
+enum ActorType {
+  user
+  api_key
+  system
+}
+
 // ── Identity (Phase 04) ──────────────────────────────────────────────────────────────────────────
 
 model User {
@@ -51,6 +70,9 @@ model User {
 
   sessions          Session[]
   verificationLinks VerificationLink[]
+  memberships       Membership[]
+  orgsCreated       Org[]              @relation("OrgCreatedBy")
+  invitesSent       Invite[]           @relation("InviteInvitedBy")
 
   @@map("users")
 }
@@ -88,4 +110,74 @@ model VerificationLink {
   @@index([token])
   @@index([expiresAt])
   @@map("verification_links")
+}
+
+// ── Tenancy (Phase 10) ───────────────────────────────────────────────────────────────────────────
+
+model Org {
+  id                     String   @id @default(uuid(7)) @db.Uuid
+  name                   String
+  createdById            String   @map("created_by") @db.Uuid
+  // Owner-key model spend per calendar month (UTC). Read by the runner (Phase 17).
+  monthlyBudgetUsdMicros BigInt   @default(20000000) @map("monthly_budget_usd_micros")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdBy   User         @relation("OrgCreatedBy", fields: [createdById], references: [id])
+  memberships Membership[]
+  invites     Invite[]
+
+  @@map("orgs")
+}
+
+model Membership {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      OrgRole
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One membership per (org, user); also the lookup index for resolveOrg.
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model Invite {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  orgId       String     @map("org_id") @db.Uuid
+  email       String
+  role        InviteRole
+  tokenHash   String     @unique @map("token_hash")
+  invitedById String     @map("invited_by") @db.Uuid
+  expiresAt   DateTime   @map("expires_at") @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("InviteInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([orgId, email])
+  @@index([expiresAt])
+  @@map("invites")
+}
+
+model AuditLog {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  orgId      String    @map("org_id") @db.Uuid
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id")
+  action     String
+  targetType String    @map("target_type")
+  targetId   String    @map("target_id")
+  diff       Json?
+  at         DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([orgId, at(sort: Desc)])
+  @@index([orgId, targetId, at(sort: Desc)])
+  @@map("audit_logs")
 }
