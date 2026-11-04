@@ -78,7 +78,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 
 ### Part C — The web app
 
-- [ ] 19 — [Web: tasks, test sets, prompts](phase-19-web-setup-screens.md)
+- [x] 19 — [Web: tasks, test sets, prompts](phase-19-web-setup-screens.md)
 - [ ] 20 — [Web: run launcher and live progress](phase-20-web-runs.md)
 - [ ] 21 — [Web: results table, error browser, side-by-side](phase-21-web-results.md)
 - [ ] 22 — [Export and published pages](phase-22-export-publish.md)

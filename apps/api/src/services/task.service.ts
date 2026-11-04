@@ -10,16 +10,33 @@ import { fieldRulesSchema, type CreateTaskBody, type UpdateTaskBody } from "@rep
 
 const LIST_TTL_SECONDS = 5 * 60;
 
-/** The task list for the current workspace (cached 5 min under the `tasks` domain). */
+/*
+  The task list for the current workspace (cached 5 min under the `tasks` domain; example/prompt/task
+  writes bump it). Each card carries its counts: fields, dev/test examples, prompt versions, latest run.
+ */
 export const listTasks = async (orgId: string) => {
     const key = await cache.versionedKey(["tasks"], `org:${orgId}:list`);
     return cache.getOrSet(
         key,
-        () =>
-            prisma.task.findMany({
+        async () => {
+            const tasks = await prisma.task.findMany({
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-                select: { id: true, slug: true, name: true, description: true, version: true, updatedAt: true },
-            }),
+                select: { id: true, slug: true, name: true, description: true, version: true, fields: true, updatedAt: true },
+            });
+            const [splits, prompts, runs] = await Promise.all([
+                prisma.example.groupBy({ by: ["taskId", "split"], _count: { _all: true } }),
+                prisma.promptVersion.groupBy({ by: ["taskId"], _count: { _all: true } }),
+                prisma.run.findMany({ orderBy: { createdAt: "desc" }, take: 500, select: { taskId: true, status: true, createdAt: true } }),
+            ]);
+            return tasks.map(({ fields, ...t }) => ({
+                ...t,
+                fieldCount: Array.isArray(fields) ? fields.length : 0,
+                devCount: splits.find((x) => x.taskId === t.id && x.split === "dev")?._count._all ?? 0,
+                testCount: splits.find((x) => x.taskId === t.id && x.split === "test")?._count._all ?? 0,
+                promptCount: prompts.find((x) => x.taskId === t.id)?._count._all ?? 0,
+                latestRun: runs.find((r) => r.taskId === t.id) ?? null,
+            }));
+        },
         LIST_TTL_SECONDS
     );
 };

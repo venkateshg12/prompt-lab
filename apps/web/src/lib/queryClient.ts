@@ -54,7 +54,7 @@ export const getQueryClient = (): QueryClient => {
 const USER_SCOPED_KEYS = [
     "sessions",
     "org", "members", "invites",                           // Phase 10
-    "tasks", "task", "examples", "agreement", "prompts",   // Phases 11–13, 19
+    "tasks", "task", "examples", "agreement", "prompts", "prompt-preview",   // Phases 11–13, 19
     "runs", "run", "run-summary", "results", "compare",    // Phases 17–21
     "published-admin",                                     // Phase 22 (the owner's publish settings)
 ];
