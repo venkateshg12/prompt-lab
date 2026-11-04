@@ -11,6 +11,7 @@ import {
 } from "../controllers/org.controller";
 import { memberRouter } from "./member.route";
 import { orgInviteRouter } from "./invite.route";
+import { taskRouter } from "./task.route";
 
 export const orgRouter = Router();
 orgRouter.use(authenticate, protectedApiLimiter);
@@ -25,5 +26,6 @@ one.patch("/", requireOrgRole("org.update"), updateOrgHandler);
 one.delete("/", requireOrgRole("org.delete"), deleteOrgHandler);
 one.use("/members", memberRouter);
 one.use("/invites", orgInviteRouter);
-// Phase 11: one.use("/tasks", taskRouter)   Phase 17: one.use("/runs", runRouter)
+one.use("/tasks", taskRouter);
+// Phase 17: one.use("/runs", runRouter)
 orgRouter.use("/:orgId", one);

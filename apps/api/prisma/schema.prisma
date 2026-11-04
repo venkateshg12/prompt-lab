@@ -126,6 +126,7 @@ model Org {
   createdBy   User         @relation("OrgCreatedBy", fields: [createdById], references: [id])
   memberships Membership[]
   invites     Invite[]
+  tasks       Task[]
 
   @@map("orgs")
 }
@@ -180,4 +181,25 @@ model AuditLog {
   @@index([orgId, at(sort: Desc)])
   @@index([orgId, targetId, at(sort: Desc)])
   @@map("audit_logs")
+}
+
+// ── Tasks and test sets (Phases 11–12) ───────────────────────────────────────────────────────────
+
+model Task {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  orgId        String   @map("org_id") @db.Uuid
+  slug         String // "job-postings"
+  name         String
+  description  String   @default("")
+  instructions String // the shared {{instructions}} block
+  fields       Json // FieldRule[] (the DSL, scoring-rules.md §2)
+  version      Int      @default(1) // bumped when instructions or fields change; runs record it
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  // Phase 12: examples · Phase 13: prompts · Phase 17: runs
+
+  @@unique([orgId, slug])
+  @@map("tasks")
 }

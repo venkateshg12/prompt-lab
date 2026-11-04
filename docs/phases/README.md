@@ -67,7 +67,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 ### Part B — The core
 
 - [x] 10 — [Workspaces, roles, invites (PaperTrail orgs)](phase-10-workspaces.md)
-- [ ] 11 — [Tasks and the field-rule DSL](phase-11-tasks-field-rules.md)
+- [x] 11 — [Tasks and the field-rule DSL](phase-11-tasks-field-rules.md)
 - [ ] 12 — [Test sets: import, edit, split, tags, second labels](phase-12-test-sets.md)
 - [ ] 13 — [Prompt versions: templates, few-shot, freezing](phase-13-prompt-versions.md)
 - [ ] 14 — [Model registry and provider adapters](phase-14-providers.md)

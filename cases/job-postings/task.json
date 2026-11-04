@@ -1,0 +1,19 @@
+{
+  "slug": "job-postings",
+  "name": "Job Posting Extractor",
+  "description": "Turn a messy job posting into clean JSON.",
+  "instructions": "Extract the job posting into the JSON fields described. Use null for anything the posting does not state. Never guess a salary: words like \"competitive\" mean null.",
+  "fields": [
+    { "kind": "text", "key": "title" },
+    { "kind": "text", "key": "company" },
+    { "kind": "text", "key": "location" },
+    { "kind": "enum", "key": "remote", "values": ["remote", "hybrid", "onsite", "unknown"] },
+    { "kind": "enum", "key": "employment_type", "values": ["full_time", "part_time", "internship", "contract", "unknown"] },
+    { "kind": "integer", "key": "experience_years_min", "min": 0, "max": 40 },
+    { "kind": "set_f1", "key": "skills", "synonyms": {
+        "js": "javascript", "ts": "typescript", "reactjs": "react", "react.js": "react",
+        "node": "node.js", "nodejs": "node.js", "postgres": "postgresql", "mongo": "mongodb",
+        "k8s": "kubernetes", "ml": "machine learning", "golang": "go", "css3": "css", "html5": "html" } },
+    { "kind": "money", "key": "stipend_or_salary", "tolerance": 0.05 }
+  ]
+}
