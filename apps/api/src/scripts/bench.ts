@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRunSchema, fieldRulesSchema } from "@repo/types";
+import { aggregateVariant, summaryMarkdown, type ResultLite } from "@repo/scoring";
 import { prisma } from "../db/prisma";
 import { runWithRequestContext } from "../utils/requestContext";
 import { complete } from "../ai/complete";
@@ -78,7 +79,7 @@ const main = async () => {
         );
 
         const lines: ReturnType<typeof toResultLine>[] = [];
-        const tally = new Map<string, { n: number; valid: number; overall: number; scored: number; errors: number; skipped: number; cost: number }>();
+        const variantRows = new Map<string, { prompt: string; model: string; rows: ResultLite[] }>();
         await pool(cells, concurrency, async ({ prompt, model, example, repeat }) => {
             const config = toModelConfig(model);
             let outcome: CellOutcome;
@@ -114,29 +115,20 @@ const main = async () => {
                 } satisfies ResultForExport)
             );
             const k = `${prompt.key}@${prompt.version} × ${model.key}`;
-            const t = tally.get(k) ?? { n: 0, valid: 0, overall: 0, scored: 0, errors: 0, skipped: 0, cost: 0 };
-            t.n++;
-            if (outcome.status === "scored") {
-                t.scored++;
-                t.valid += outcome.validJson ? 1 : 0;
-                t.overall += outcome.overallScore ?? 0;
-                t.cost += outcome.costUsdMicros ?? 0;
-            } else if (outcome.status === "error") t.errors++;
-            else t.skipped++;
-            tally.set(k, t);
+            const entry = variantRows.get(k) ?? { prompt: `${prompt.key}@${prompt.version}`, model: model.key, rows: [] };
+            entry.rows.push({
+                exampleId: example.ref, repeat, status: outcome.status, overallScore: outcome.overallScore, validJson: outcome.validJson,
+                schemaValid: outcome.schemaValid, exactMatch: outcome.exactMatch, fieldScores: outcome.fieldScores,
+                fieldDetails: outcome.fieldDetails as ResultLite["fieldDetails"], parsedJson: outcome.parsedJson,
+                outputTokens: outcome.outputTokens, costUsdMicros: outcome.costUsdMicros, latencyMs: outcome.latencyMs,
+            });
+            variantRows.set(k, entry);
         });
 
-        console.table(
-            [...tally.entries()].map(([variant, t]) => ({
-                variant,
-                cells: t.n,
-                "valid json %": t.scored ? Math.round((100 * t.valid) / t.scored) : "n/a",
-                "mean overall": t.scored ? +(t.overall / t.scored).toFixed(3) : "n/a",
-                errors: t.errors,
-                skipped: t.skipped,
-                "cost µ$": t.cost,
-            }))
-        );
+        // The results table, from the same aggregate the API uses (so the terminal and the README can't disagree).
+        console.log(summaryMarkdown([...variantRows.values()].map((v) => ({ prompt: v.prompt, model: v.model, summary: aggregateVariant(v.rows, fields) }))));
+        const priceDates = plan.models.map((m) => `${m.key}: ${m.priceCheckedOn.toISOString().slice(0, 10)}`).join(", ");
+        console.log(`\nPrices checked on: ${priceDates}${saved?.testReused ? " | testReused: this test set was already used by an earlier run" : ""}`);
         console.log(`${saved ? "saved run" : "run"} ${runId}: ${cells.length} cells${saved?.testReused ? " (testReused)" : ""}`);
         if (out) {
             await mkdir(path.dirname(path.resolve(out)), { recursive: true });

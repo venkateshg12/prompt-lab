@@ -8,6 +8,12 @@ import { OWNER_RUNS_REQUIRE_ADMIN } from "../constants/env";
 import { prisma } from "../db/prisma";
 import { assertWithinBudget, createRun, planRun } from "../runner/createRun";
 import { cancelRun, getRun, listRuns, toRunDto } from "../services/run.service";
+import { assertRescorable, getRunSummary, listResults } from "../services/results.service";
+import { datasetHashOf } from "../runner/dataset";
+import { maintenanceQueue } from "../jobs/queues/maintenance.queue";
+import { JOB_NAMES } from "../constants/queue";
+import { tagSchema } from "@repo/types";
+import { z } from "zod";
 import { actorOf } from "../utils/actor";
 import { openStream } from "../utils/events/sse";
 import { assertStreamSlot, releaseStreamSlot } from "../utils/events/streamLimiter";
@@ -61,6 +67,36 @@ export const listRunsHandler = catchError(async (req, res) => {
 
 export const getRunHandler = catchError(async (req, res) => {
     res.status(OK).json(ok(await getRun(runId(req))));
+});
+
+export const runSummaryHandler = catchError(async (req, res) => {
+    const tag = req.query.tag === undefined ? undefined : tagSchema.parse(req.query.tag);
+    res.status(OK).json(ok(await getRunSummary(req.orgId, runId(req), tag)));
+});
+
+export const runResultsHandler = catchError(async (req, res) => {
+    const q = cursorQuerySchema
+        .extend({
+            variant: idSchema("variant id").optional(),
+            field: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).optional(),
+            reason: z.enum(["match", "mismatch", "partial", "missing", "wrong_type", "null_expected", "null_predicted", "currency_mismatch", "out_of_tolerance"]).optional(),
+            failedOnly: z.enum(["true", "false"]).optional(),
+        })
+        .parse(req.query);
+    const { items, meta } = await listResults(req.orgId, runId(req), { ...q, failedOnly: q.failedOnly === "true" });
+    res.status(OK).json(ok(items, meta));
+});
+
+// Re-score from the stored raw outputs with the CURRENT rules and labels: no model calls. The job id
+// carries the task version and a hash of the labels, so asking twice for the same state is one job.
+export const rescoreRunHandler = catchError(async (req, res) => {
+    const id = runId(req);
+    const run = await assertRescorable(id);
+    const taskRow = await prisma.run.findUnique({ where: { id }, select: { taskId: true } });
+    const examples = taskRow ? await prisma.example.findMany({ where: { taskId: taskRow.taskId }, select: { ref: true, revision: true } }) : [];
+    const jobId = `rescore-${id}-${run.task.version}-${datasetHashOf(examples).slice(0, 8)}`;
+    await maintenanceQueue.add(JOB_NAMES.MAINTENANCE.RESCORE_RUN, { orgId: req.orgId, runId: id }, { jobId });
+    res.status(OK).json(ok({ enqueued: true, jobId }));
 });
 
 export const cancelRunHandler = catchError(async (req, res) => {

@@ -74,7 +74,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 - [ ] 15 — [Techniques: few-shot, chain-of-thought, structured output + the probe](phase-15-techniques.md)
 - [x] 16 — [The scoring library](phase-16-scoring.md)
 - [x] 17 — [The runner: cells, limits, retries, progress, DLQ, CLI](phase-17-runner.md)
-- [ ] 18 — [Aggregation: the results table, intervals, subsets](phase-18-aggregation.md)
+- [x] 18 — [Aggregation: the results table, intervals, subsets](phase-18-aggregation.md)
 
 ### Part C — The web app
 

@@ -8,6 +8,9 @@ import {
     getRunHandler,
     listRunsHandler,
     runEventsHandler,
+    rescoreRunHandler,
+    runResultsHandler,
+    runSummaryHandler,
 } from "../controllers/run.controller";
 
 // /orgs/:orgId/runs, behind org.route's `one` router (authenticated, limited, resolved to a workspace).
@@ -18,3 +21,6 @@ runRouter.get("/", requireOrgRole("runs.read"), listRunsHandler);
 runRouter.get("/:runId", requireOrgRole("runs.read"), getRunHandler);
 runRouter.post("/:runId/cancel", requireOrgRole("runs.start"), cancelRunHandler);
 runRouter.get("/:runId/events", requireOrgRole("runs.read"), runEventsHandler);
+runRouter.get("/:runId/summary", requireOrgRole("runs.read"), runSummaryHandler); // ?tag=
+runRouter.get("/:runId/results", requireOrgRole("runs.read"), runResultsHandler); // ?variant&field&reason&failedOnly&cursor
+runRouter.post("/:runId/rescore", requireOrgRole("runs.start"), rescoreRunHandler);

@@ -29,5 +29,8 @@ export const TENANT_ROUTES = [
     { method: "get", path: "/orgs/:orgId/runs/:runId" },
     { method: "post", path: "/orgs/:orgId/runs/:runId/cancel", body: {} },
     { method: "get", path: "/orgs/:orgId/runs/:runId/events" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/summary" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/results" },
+    { method: "post", path: "/orgs/:orgId/runs/:runId/rescore", body: {} },
     { method: "post", path: "/orgs/:orgId/runs/estimate", body: {} },
 ] as const;

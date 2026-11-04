@@ -16,6 +16,7 @@ export const JOB_NAMES = {
     MAINTENANCE: {
         PURGE_EXPIRED: 'purge-expired',
         SWEEP_STALE_RUNS: 'sweep-stale-runs',
+        RESCORE_RUN: 'rescore-run',
     },
     RUN_CELL: {
         CELL: 'run-cell',

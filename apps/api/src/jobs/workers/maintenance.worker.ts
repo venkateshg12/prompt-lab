@@ -1,5 +1,6 @@
 import { Job, Worker } from "bullmq";
 import { JOB_NAMES, QUEUE_NAMES } from "../../constants/queue";
+import { processRescoreRun } from "../processors/rescore.processor";
 import { processSweepStaleRuns } from "../processors/staleRuns.processor";
 import { processPurgeExpired } from "../processors/purgeExpired.processor";
 import { redisConnection } from "../redis/connection";
@@ -13,6 +14,8 @@ export const maintenanceWorker = new Worker(
         return await processPurgeExpired();
       case JOB_NAMES.MAINTENANCE.SWEEP_STALE_RUNS:
         return await processSweepStaleRuns();
+      case JOB_NAMES.MAINTENANCE.RESCORE_RUN:
+        return await processRescoreRun(job);
       default:
         throw new Error(`Unknown job name: ${job.name}`);
     }

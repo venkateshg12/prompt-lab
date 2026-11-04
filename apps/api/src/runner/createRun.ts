@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { prisma } from "../db/prisma";
 import { withTransaction } from "../utils/db";
 import { sumMicros, toBigMicros } from "../utils/db/money";
@@ -11,12 +10,11 @@ import { freezePromptVersions } from "../services/prompt.service";
 import { isEnabled } from "../ai/enabled";
 import { buildSnapshots, type VariantSnapshot } from "./snapshot";
 import { cellJobId } from "./cellJobId";
+import { datasetHashOf } from "./dataset";
 import { runCellQueue } from "../jobs/queues/runCell.queue";
 import { JOB_NAMES } from "../constants/queue";
 import { MAX_CELLS_PER_RUN, type CreateRun } from "@repo/types";
 import type { Run, RunVariant } from "../generated/prisma/client";
-
-const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 /** The conservative upper bound: chars/4 for the prompt, the full maxTokens for the answer. */
 export const estimateCostMicros = (
@@ -85,7 +83,7 @@ export const planRun = async (orgId: string, body: CreateRun, opts: { requireEna
     const totalCells = prompts.length * models.length * examples.length * body.repeats;
     appAssert(totalCells <= MAX_CELLS_PER_RUN, BAD_REQUEST, `Run too large (${totalCells} cells; the limit is ${MAX_CELLS_PER_RUN})`);
 
-    const datasetHash = sha256(examples.map((e) => `${e.ref}:${e.revision}`).join("\n"));
+    const datasetHash = datasetHashOf(examples);
     const pricesSnapshot = Object.fromEntries(
         models.map((m) => [
             m.key,
