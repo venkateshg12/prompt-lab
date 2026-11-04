@@ -60,6 +60,9 @@ export type EmailSchema = z.infer<typeof emailSchema>
 export const resetPasswordSchema = registerFieldsSchema.pick({
     password: true,
     confirmPassword: true
+}).extend({
+    // The emailed token travels in the body, never the URL (Phase 05 §5).
+    token: z.string().regex(/^[0-9a-f]{64}$/, { message: "Invalid or expired reset link" }),
 }).refine(
     (data) => data.password === data.confirmPassword, {
     message: "Password do not match",

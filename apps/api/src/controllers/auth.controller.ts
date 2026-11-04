@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { CREATED, OK, UNAUTHORIZED } from "../constants/https";
-import { createAccount, loginUser, refreshUserAccessToken, resendVerificationEmail, revokeSessions, verifyEmail } from "../services/auth.service";
+import { CREATED, NOT_FOUND, OK, UNAUTHORIZED } from "../constants/https";
+import { changePasswordService, createAccount, loginUser, refreshUserAccessToken, resendVerificationEmail, resetPassword, sentResetPasswordEmail, updateProfileService, revokeSessions, verifyEmail } from "../services/auth.service";
 import { catchError, appAssert } from "../utils/errors";
-import { emailSchema, loginInSchema, registerSchema } from "@repo/types";
+import { changePasswordSchema, emailSchema, loginInSchema, registerSchema, resetPasswordSchema, updateProfileSchema } from "@repo/types";
 import { clearAuthCookies, getAccessTokenCookieOptions, getRefreshTokenCookieOptions, setAuthCookies, verifyAccessTokenIgnoringExpiry } from "../utils/auth";
+import { prisma } from "../db/prisma";
 import { isUuid } from "../db/errors";
+import { toSafeUser } from "../types/user.types";
 import { ok } from "../utils/api";
 
 export const registerHandler = catchError(
@@ -97,6 +99,52 @@ export const resendVerificationHandler = catchError(
     async (req, res) => {
         const { email } = emailSchema.parse(req.body);
         const result = await resendVerificationEmail(email);
+        return res.status(OK).json(ok(result));
+    }
+)
+
+export const forgotPasswordHandler = catchError(
+    async (req, res) => {
+        const request = emailSchema.parse(req.body);
+
+        // call the service
+        const sendLinkMessage = await sentResetPasswordEmail(request.email);
+        return res.status(OK).json(ok(sendLinkMessage))
+    }
+)
+
+export const resetPasswordHandler = catchError(
+    async (req, res) => {
+        const { token, password } = resetPasswordSchema.parse(req.body);
+        await resetPassword({ token, password });
+
+        clearAuthCookies(res)
+            .status(OK)
+            .json(ok("Password reset successful"));
+    }
+);
+
+export const getProfileData = catchError(
+    async (req, res) => {
+        const userId = req.userId;
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        appAssert(user !== null, NOT_FOUND, "User not found!");
+        res.status(OK).json(ok({user: toSafeUser(user)}));
+    }
+)
+
+export const updateProfileHandler = catchError(
+    async (req, res) => {
+        const data = updateProfileSchema.parse(req.body);
+        const user = await updateProfileService(req.userId, data);
+        return res.status(OK).json(ok({ user }));
+    }
+)
+
+export const changePasswordHandler = catchError(
+    async (req, res) => {
+        const data = changePasswordSchema.parse(req.body);
+        const result = await changePasswordService(req.userId, req.sessionId, data);
         return res.status(OK).json(ok(result));
     }
 )

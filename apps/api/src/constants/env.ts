@@ -44,3 +44,4 @@ if (JWT_SECRET.length < MIN_JWT_SECRET_LENGTH || JWT_REFRESH_SECRET.length < MIN
 if (JWT_SECRET === JWT_REFRESH_SECRET) {
     throw new Error("JWT_SECRET and JWT_REFRESH_SECRET must be different values");
 }
+export const GOOGLE_CLIENT_ID = getEnv("GOOGLE_CLIENT_ID");

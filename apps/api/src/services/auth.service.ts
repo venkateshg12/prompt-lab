@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { CredentialSchema, LoginInSchema } from "@repo/types";
+import { ChangePasswordSchema, CredentialSchema, LoginInSchema, UpdateProfileSchema } from "@repo/types";
 import { prisma, type Prisma } from "../db/prisma";
 import { nullIfNotFound } from "../db/errors";
 import { appAssert } from "../utils/errors";
@@ -256,4 +256,90 @@ export const resendVerificationEmail = async (email: string) => {
     }
 
     return { message: GENERIC_RESEND_MESSAGE };
+}
+
+export const sentResetPasswordEmail = async (email: string) => {
+    const genericMessage = "If an account with that email exists, a password reset link has been sent. Please check your spam folder too.";
+
+    // get the user by email
+    const user = await prisma.user.findUnique({ where: { email: normaliseEmail(email) } });
+    if (!user) {
+        return { message: genericMessage };
+    }
+
+    // Only the newest reset link is valid; older ones sitting in an inbox are invalidated.
+    await prisma.verificationLink.deleteMany({
+        where: { userId: user.id, type: VerificationLinkType.PasswordReset }
+    });
+
+    const { token, tokenHash } = createVerificationToken();
+    await prisma.verificationLink.create({
+        data: {
+            userId: user.id,
+            type: VerificationLinkType.PasswordReset,
+            token: tokenHash,
+            expiresAt: tenMinutesFromNow()
+        }
+    });
+
+    // Phase 08: await EmailProducer.sendPasswordReset({ userId: user.id, email: user.email, resetToken: token });
+    if (NODE_ENV === "development") {
+        logger.debug({ url: `${CLIENT_URL}/password/reset/${token}` }, "dev reset link (no email until Phase 08)");
+    }
+
+    return { message: genericMessage }
+}
+
+export const resetPassword = async ({ token, password }: { token: string; password: string }) => {
+    const verificationLink = await consumeVerificationLink(token, VerificationLinkType.PasswordReset);
+    appAssert(verificationLink, BAD_REQUEST, "Invalid or expired reset link");
+
+    const user = await prisma.user.findUnique({ where: { id: verificationLink.userId } });
+    appAssert(user, NOT_FOUND, "User not found");
+
+    await prisma.user.update({ where: { id: user.id }, data: { password: await hashValue(password) } });
+
+    await prisma.verificationLink.deleteMany({
+        where: { userId: user.id, type: VerificationLinkType.PasswordReset }
+    });
+
+    await revokeSessions({ userId: user.id });
+
+    return { message: "Password reset successful" };
+}
+
+export const updateProfileService = async (userId: string, data: UpdateProfileSchema) => {
+    const user = await nullIfNotFound(
+        prisma.user.update({ where: { id: userId }, data: { name: data.name } })
+    );
+    appAssert(user, NOT_FOUND, "User not found");
+
+    return toSafeUser(user);
+};
+
+export const changePasswordService = async (
+    userId: string,
+    currentSessionId: string,
+    data: ChangePasswordSchema
+) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    appAssert(user, NOT_FOUND, "User not found");
+    appAssert(
+        user.authProvider === "local",
+        BAD_REQUEST,
+        "Password change is not available for accounts signed in with Google"
+    );
+
+    const isValid = await passwordMatches(user, data.currentPassword);
+    appAssert(isValid, UNAUTHORIZED, "Current password is incorrect");
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { password: await hashValue(data.newPassword) }
+    });
+
+    // Sign the user out of every other device/session, keep the current one active
+    await revokeSessions({ userId: user.id, id: { not: currentSessionId } });
+
+    return { message: "Password changed successfully. You've been signed out of all other devices." };
 }
