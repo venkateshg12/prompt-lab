@@ -55,3 +55,20 @@ When it's true, ioredis waits until Redis reports that it's fully ready before s
 When it's false, it skips that extra check and starts using the connection immediately. 
 BullMQ commonly uses false because its long-running workers and reconnection logic don't require the extra readiness handshake."
  */
+/*
+  ADAPT (Phase 08): shared ioredis instances for tests and scripts, so they can flush or scan exactly
+  the instance a feature uses instead of building new connections with copied options.
+ */
+let cacheRedis: import("ioredis").default | null = null;
+export const getQueueRedis = (): import("ioredis").default =>
+    // Lazy require: jobs/redis/connection imports this file.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require("../jobs/redis/connection") as typeof import("../jobs/redis/connection")).redisConnection;
+export const getCacheRedis = (): import("ioredis").default => {
+    if (!cacheRedis) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const IORedis = require("ioredis") as typeof import("ioredis");
+        cacheRedis = new IORedis.default(getCacheRedisConfig());
+    }
+    return cacheRedis;
+};

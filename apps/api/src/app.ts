@@ -2,7 +2,15 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { CORS_ORIGIN, DEBUG_IP_ENDPOINT, NODE_ENV } from "./constants/env";
+import crypto from "crypto";
+import {
+    CORS_ORIGIN,
+    DEBUG_IP_ENDPOINT,
+    ENABLE_QUEUE_DASHBOARD,
+    NODE_ENV,
+    QUEUE_DASHBOARD_PASSWORD,
+    QUEUE_DASHBOARD_USER,
+} from "./constants/env";
 import { ok } from "./utils/api";
 import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
@@ -14,6 +22,35 @@ import { visitorIdMiddleware } from "./middleware/visitorId";
 import { globalLimiter } from "./config/rateLimiter";
 import { authRoutes } from "./routes/auth.route";
 import sessionRoutes from "./routes/session.route";
+import { gmailRoutes } from "./routes/gmail.route";
+import { setupBullBoard } from "./jobs/dashboard/bull-board";
+
+/**
+ * Basic auth for the queue dashboard. Compared with a timing-safe digest comparison so the
+ * credentials can't be recovered a character at a time.
+ */
+const queueDashboardAuth: express.RequestHandler = (req, res, next) => {
+    const header = req.headers.authorization ?? "";
+    const [scheme, encoded] = header.split(" ");
+
+    if (scheme === "Basic" && encoded) {
+        const [user, password] = Buffer.from(encoded, "base64").toString().split(":");
+        if (matchesSecret(user, QUEUE_DASHBOARD_USER) && matchesSecret(password, QUEUE_DASHBOARD_PASSWORD)) {
+            return next();
+        }
+    }
+
+    res.setHeader("WWW-Authenticate", 'Basic realm="Queues"');
+    res.status(401).send("Authentication required");
+};
+
+// Hashing first keeps the comparison length-independent, since timingSafeEqual throws on a
+// length mismatch — which would itself leak the length.
+const matchesSecret = (candidate: string | undefined, expected: string): boolean => {
+    const a = crypto.createHash("sha256").update(candidate ?? "").digest();
+    const b = crypto.createHash("sha256").update(expected).digest();
+    return crypto.timingSafeEqual(a, b);
+};
 
 /*
   Builds the Express app with no side effects: no listen, no DB connection. index.ts runs it;
@@ -21,6 +58,21 @@ import sessionRoutes from "./routes/session.route";
  */
 export const createApp = () => {
     const app = express();
+
+    const queueDashboardEnabled = ENABLE_QUEUE_DASHBOARD === "true";
+    const queueDashboardConfigured =
+        Boolean(QUEUE_DASHBOARD_USER) && Boolean(QUEUE_DASHBOARD_PASSWORD);
+
+    if (queueDashboardEnabled && !queueDashboardConfigured) {
+        throw new Error(
+            "ENABLE_QUEUE_DASHBOARD is true but QUEUE_DASHBOARD_USER/QUEUE_DASHBOARD_PASSWORD are not set"
+        );
+    }
+
+    // Mounted before requestId, the JSON parser and globalLimiter, as in PaperTrail.
+    if (queueDashboardEnabled && queueDashboardConfigured) {
+        app.use("/admin/queues", queueDashboardAuth, setupBullBoard());
+    }
 
     /*
       Trust exactly the proxies the rate limiter trusts, so req.ip and the limiter agree on the client.
@@ -97,6 +149,9 @@ export const createApp = () => {
     // Routes are registered here, phase by phase.
     app.use("/auth", authRoutes);
     app.use("/session", sessionRoutes);
+
+    // The path is fixed by the redirect URI registered with Google (/api/auth/gmail/callback).
+    app.use("/api/auth/gmail", gmailRoutes);
 
     app.use(notFound);
     app.use(errorHandler);

@@ -20,8 +20,7 @@ import {
 import { RefreshTokenPayload } from "../types/auth.types";
 import { toSafeUser, type UserRecord } from "../types/user.types";
 import { cache, sessionCacheKey } from "../utils/cache";
-import { CLIENT_URL, NODE_ENV } from "../constants/env";
-import { logger } from "../utils/logger";
+import { EmailProducer } from "../jobs/producers/email.producer";
 
 /*
   How long a just-replaced refresh token is still honoured. The client serialises refreshes within a
@@ -124,10 +123,7 @@ const issueEmailVerificationLink = async (user: UserRecord) => {
         }
     });
 
-    // Phase 08: await EmailProducer.sendVerifyMail({ userId: user.id, email: user.email, verificationToken: token });
-    if (NODE_ENV === "development") {
-        logger.debug({ url: `${CLIENT_URL}/auth/verify/${token}` }, "dev verification link (no email until Phase 08)");
-    }
+    await EmailProducer.sendVerifyEmail({ userId: user.id, email: user.email, verificationToken: token });
 };
 
 
@@ -283,10 +279,7 @@ export const sentResetPasswordEmail = async (email: string) => {
         }
     });
 
-    // Phase 08: await EmailProducer.sendPasswordReset({ userId: user.id, email: user.email, resetToken: token });
-    if (NODE_ENV === "development") {
-        logger.debug({ url: `${CLIENT_URL}/password/reset/${token}` }, "dev reset link (no email until Phase 08)");
-    }
+    await EmailProducer.sendPasswordReset({ userId: user.id, email: user.email, resetToken: token });
 
     return { message: genericMessage }
 }

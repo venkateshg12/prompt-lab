@@ -14,6 +14,8 @@ import {
 } from "../controllers/auth.controller";
 import { googleAuthHandler } from "../controllers/googleAuth.controller";
 import authenticate from "../middleware/authenticate";
+import { NODE_ENV } from "../constants/env";
+import { devMailbox, type DevMailEntry } from "../utils/email/devMailbox";
 import {
     forgotPasswordAccountLimiter,
     forgotPasswordLimiter,
@@ -51,3 +53,19 @@ authRoutes.post("/google", loginSourceLimiter, googleAuthHandler);
 authRoutes.get("/me", authenticate, protectedApiLimiter, getProfileData);
 authRoutes.patch("/me", authenticate, protectedApiLimiter, updateProfileHandler);
 authRoutes.post("/me/password", authenticate, protectedApiLimiter, changePasswordHandler);
+
+if (NODE_ENV !== "production") {
+    // Dev/test only: the last email the in-memory mailbox "sent" (Phase 28 tests and Playwright read links here).
+    authRoutes.get("/dev/latest-link", (req, res) => {
+        const email = req.query.email as string | undefined;
+        const entry = devMailbox
+            .slice()
+            .reverse()
+            .find((m: DevMailEntry) => !email || m.to.toLowerCase() === email.toLowerCase());
+
+        res.json({
+            ok: true,
+            email: entry || null,
+        });
+    });
+}
