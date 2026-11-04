@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: promptlab-postgres
+    environment:
+      POSTGRES_USER: promptlab
+      POSTGRES_PASSWORD: promptlab
+      POSTGRES_DB: promptlab
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promptlab -d promptlab"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Cell jobs, rate limits, pub/sub. Must never evict (BullMQ loses jobs otherwise).
+  redis:
+    image: redis:7
+    container_name: promptlab-redis
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 5 }
+
+  # Response cache. volatile-lru evicts only keys with a TTL: every cache entry has one, the
+  # namespace version counters don't. No persistence: an empty cache after restart is correct.
+  redis-cache:
+    image: redis:7
+    container_name: promptlab-redis-cache
+    ports: ["6380:6379"]
+    command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy volatile-lru
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 5 }
+
+volumes:
+  postgres_data:
+  redis_data:
