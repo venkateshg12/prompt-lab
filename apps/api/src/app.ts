@@ -2,12 +2,15 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { CORS_ORIGIN, NODE_ENV } from "./constants/env";
+import { CORS_ORIGIN, DEBUG_IP_ENDPOINT, NODE_ENV } from "./constants/env";
 import { ok } from "./utils/api";
 import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestId } from "./middleware/requestId";
 import { isDbHealthy } from "./config/db";
+import { extractClientIp, trustProxy } from "./utils/rateLimiter/ipExtractor";
+import { visitorIdMiddleware } from "./middleware/visitorId";
+import { globalLimiter } from "./config/rateLimiter";
 import { authRoutes } from "./routes/auth.route";
 import sessionRoutes from "./routes/session.route";
 
@@ -18,7 +21,11 @@ import sessionRoutes from "./routes/session.route";
 export const createApp = () => {
     const app = express();
 
-    // First, so even a helmet or CORS rejection carries an id. Phase 06: trust proxy + limiters.
+    /*
+      Trust exactly the proxies the rate limiter trusts, so req.ip and the limiter agree on the client.
+     */
+    app.set("trust proxy", trustProxy);
+    // First middleware, so even a helmet or CORS rejection carries an id.
     app.use(requestId);
     app.use(
         helmet({
@@ -28,12 +35,47 @@ export const createApp = () => {
     );
 
     const corsOrigin = CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
-    app.use(cors({ origin: corsOrigin, credentials: true }));
+    app.use(
+        cors({
+            origin: corsOrigin,
+            credentials: true,
+            // X-Lab-Visitor: the web app's per-browser visitor id (demo fairness key, Phase 06/23).
+            // Phase 10 adds X-Org-Id, Phase 23 X-Provider-Key.
+            allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Lab-Visitor"],
+        })
+    );
 
     // 256 kB covers every JSON request this API takes. The test-set import route (Phase 12)
     // mounts its own larger parser for JSONL/CSV files, so only that route accepts big bodies.
     app.use(express.json({ limit: "256kb" }));
     app.use(cookieParser());
+    app.use(visitorIdMiddleware);
+    app.use(globalLimiter);
+
+    /*
+      Shows how the rate limiter identifies the caller, to check TRUSTED_PROXY_CIDRS on a real deploy.
+      Off unless DEBUG_IP_ENDPOINT=true: it echoes proxy headers and reveals which ones are trusted.
+      Declared before the routers mounted at "/" for the same reason as /health below.
+     */
+    if (DEBUG_IP_ENDPOINT === "true") {
+        app.get("/debug-ip", (req, res) => {
+            const peer = req.socket.remoteAddress;
+            res.json(
+                ok({
+                    resolvedIp: extractClientIp(req),
+                    expressReqIp: req.ip,
+                    tcpPeer: peer,
+                    peerIsTrustedProxy: peer ? trustProxy(peer) : false,
+                    visitorId: req.visitorId ?? null,
+                    headers: {
+                        "cf-connecting-ip": req.headers["cf-connecting-ip"] ?? null,
+                        "x-forwarded-for": req.headers["x-forwarded-for"] ?? null,
+                        "true-client-ip": req.headers["true-client-ip"] ?? null,
+                    },
+                })
+            );
+        });
+    }
 
     // Health first, so routers that call router.use(authenticate) can never shadow it.
     app.get("/health", async (_req, res) => {

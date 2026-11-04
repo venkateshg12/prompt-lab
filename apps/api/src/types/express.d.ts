@@ -6,7 +6,10 @@ declare global {
             userId: string;
             sessionId: string;
             role: User["role"];
-            // Phase 06: visitorId. Phase 10: orgId, orgRole.
+            visitorId?: string;
+            // Set by resolveOrg (Phase 10); declared now because the invite limiter keys on it.
+            orgId: string;
+            // Phase 10: orgRole.
         }
     }
 }

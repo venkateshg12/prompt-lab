@@ -45,3 +45,19 @@ if (JWT_SECRET === JWT_REFRESH_SECRET) {
     throw new Error("JWT_SECRET and JWT_REFRESH_SECRET must be different values");
 }
 export const GOOGLE_CLIENT_ID = getEnv("GOOGLE_CLIENT_ID");
+export const DEBUG_IP_ENDPOINT = getEnv("DEBUG_IP_ENDPOINT", "false");
+export const TRUSTED_PROXY_CIDRS = getEnv("TRUSTED_PROXY_CIDRS", "");
+export const REDIS_HOST = getEnv("REDIS_HOST");
+export const REDIS_PORT = getEnv("REDIS_PORT");
+// Empty for a local passwordless Redis; set both for a hosted one (e.g. Redis Cloud).
+export const REDIS_USERNAME = getEnv("REDIS_USERNAME", "");
+export const REDIS_PASSWORD = getEnv("REDIS_PASSWORD", "");
+
+// The response cache runs on its own Redis (see docker-compose.yml): it must be allowed to evict,
+// which the queue/rate-limit instance must not.
+export const CACHE_REDIS_HOST = getEnv("CACHE_REDIS_HOST", REDIS_HOST);
+export const CACHE_REDIS_PORT = getEnv("CACHE_REDIS_PORT", "6380");
+export const CACHE_REDIS_USERNAME = getEnv("CACHE_REDIS_USERNAME", REDIS_USERNAME);
+export const CACHE_REDIS_PASSWORD = getEnv("CACHE_REDIS_PASSWORD", REDIS_PASSWORD);
+// Demo runs (all visitors together) per 24 h. Each run is ≤ 10 calls on the visitor's own key.
+export const DEMO_DAILY_CAP = getEnv("DEMO_DAILY_CAP", "500");
