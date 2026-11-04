@@ -5,7 +5,7 @@ import { LLM_PROVIDER, NVIDIA_BASE_URL } from "../constants/env";
 import { breakerFor } from "./breakers";
 import { assertRpmBudget, withLease } from "./concurrency";
 import { withRetry } from "./reliability";
-import { ModelRetired, ProviderNotConfigured, ProviderSkipped, isClientError } from "./errors";
+import { ModelRetired, ProviderBusy, ProviderNotConfigured, ProviderSkipped, isClientError } from "./errors";
 import { createOpenAiCompatible } from "./providers/openaiCompatible";
 import { anthropicProvider } from "./providers/anthropic";
 import { geminiProvider } from "./providers/gemini";
@@ -41,18 +41,21 @@ export const complete = async (
     model: ModelConfig,
     price: Price,
     req: CompleteRequest,
-    opts: { apiKey?: string; signal?: AbortSignal } = {}
+    opts: { apiKey?: string; signal?: AbortSignal; adapter?: Provider } = {}
 ): Promise<CallOutcome> => {
     const apiKey = opts.apiKey ?? serverKey(model.provider);
     if (!apiKey) throw new ProviderNotConfigured(model.key);
-    const adapter = LLM_PROVIDER === "replay" ? replayProvider : adapters[model.provider];
+    const adapter = opts.adapter ?? (LLM_PROVIDER === "replay" ? replayProvider : adapters[model.provider]);
     let attempts = 0;
     let latencyMs = 0;
     let lastError: unknown;
 
+    // The RPM budget is checked BEFORE the breaker: a full per-minute budget is the normal state of a big
+    // benchmark run, not a sign the provider is unhealthy, so it must never count as a breaker failure.
+    await assertRpmBudget(model.key);
+
     const outcome = await breakerFor(model.key).execute(
         async () => {
-            await assertRpmBudget(model.key);
             try {
                 const result = await withLease(model.key, () =>
                     withRetry(
@@ -70,9 +73,10 @@ export const complete = async (
                 return { ok: true as const, result };
             } catch (error) {
                 lastError = error;
-                // A wrong key or a retired id says nothing about the provider's health: return it as a
-                // value so the breaker records a success, and rethrow it below.
-                if (isClientError(error)) return { ok: false as const, error };
+                // A wrong key or a retired id says nothing about the provider's health, and neither does
+                // waiting for a free concurrency lease: return it as a value so the breaker records a
+                // success, and rethrow it below. (PaperTrail counts ProviderBusy; a benchmark must not.)
+                if (isClientError(error) || error instanceof ProviderBusy) return { ok: false as const, error };
                 throw error; // counts against the breaker
             }
         },

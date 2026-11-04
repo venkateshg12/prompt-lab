@@ -23,12 +23,16 @@ export default async function globalSetup() {
   const redis = new Redis({ host: "127.0.0.1", port: 6379, lazyConnect: true, maxRetriesPerRequest: 1 });
   try {
     await redis.connect();
-    let cursor = "0";
-    do {
-      const [next, keys] = await redis.scan(cursor, "MATCH", "rl:*", "COUNT", 500);
-      cursor = next;
-      if (keys.length) await redis.del(...keys);
-    } while (cursor !== "0");
+    // Rate-limit counters, plus leftover run jobs from an earlier (aborted) run: the E2E worker would
+    // otherwise try to process cells of runs that live in another database.
+    for (const pattern of ["rl:*", "bull:run-cell-queue:*", "bull:run-finalize-queue:*", "llm:leases:*"]) {
+      let cursor = "0";
+      do {
+        const [next, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 500);
+        cursor = next;
+        if (keys.length) await redis.del(...keys);
+      } while (cursor !== "0");
+    }
   } finally {
     redis.disconnect();
   }

@@ -24,7 +24,8 @@ import { authRoutes } from "./routes/auth.route";
 import sessionRoutes from "./routes/session.route";
 import { orgRouter } from "./routes/org.route";
 import { publicInviteRouter } from "./routes/invite.route";
-import { adminModelRouter, modelRouter } from "./routes/model.route";
+import { modelRouter } from "./routes/model.route";
+import { adminRouter } from "./routes/admin.route";
 import { gmailRoutes } from "./routes/gmail.route";
 import { setupBullBoard } from "./jobs/dashboard/bull-board";
 
@@ -158,7 +159,7 @@ export const createApp = () => {
     app.use("/orgs", orgRouter);
     app.use("/invites", publicInviteRouter);
     app.use("/models", modelRouter);
-    app.use("/admin", adminModelRouter);
+    app.use("/admin", adminRouter);
 
     // The path is fixed by the redirect URI registered with Google (/api/auth/gmail/callback).
     app.use("/api/auth/gmail", gmailRoutes);

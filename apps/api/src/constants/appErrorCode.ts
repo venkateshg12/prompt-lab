@@ -8,5 +8,13 @@ export enum appErrorCode {
     ValidationError = "VALIDATION_ERROR",
     QuotaExceeded = "QUOTA_EXCEEDED",
     TooManyRequests = "TOO_MANY_REQUESTS",
-    // Later phases append their own codes here: PromptFrozen (13), ProviderNotConfigured (14), ...
+    PromptFrozen = "PROMPT_FROZEN",
+    ProviderNotConfigured = "PROVIDER_NOT_CONFIGURED",
+    ModelInactive = "MODEL_INACTIVE",
+    ModelUnprobed = "MODEL_UNPROBED",
+    OwnerRunsAdminOnly = "OWNER_RUNS_ADMIN_ONLY",
+    RunNotCancellable = "RUN_NOT_CANCELLABLE",
+    TestReused = "TEST_REUSED",
+    BudgetExceeded = "BUDGET_EXCEEDED",
+    // Phase 23 appends: DemoKeyMissing, DemoKeyInvalid, DemoDailyCap
 }

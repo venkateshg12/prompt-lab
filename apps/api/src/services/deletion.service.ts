@@ -4,6 +4,7 @@ import { appAssert } from "../utils/errors";
 import { withTransaction } from "../utils/db";
 import { BAD_REQUEST, NOT_FOUND } from "../constants/https";
 import { logger } from "../utils/logger";
+import { runWithRequestContext } from "../utils/requestContext";
 import { membershipCacheKey } from "./org.service";
 
 export const hardDeleteOrg = async (orgId: string, actorId: string, confirmName: string) => {
@@ -16,7 +17,11 @@ export const hardDeleteOrg = async (orgId: string, actorId: string, confirmName:
         await tx.org.delete({ where: { id: orgId } }); // cascades memberships, invites, tasks → everything
     });
     await cache.del(...members.map((m) => membershipCacheKey(orgId, m.userId)));
-    // Phase 17: cancel this workspace's queued cells before deleting (a running run's jobs would 404 harmlessly, but waste calls).
+    // Cancel the workspace's queued/running runs first, so cells that are still queued record `skipped`
+    // instead of calling a model for a workspace that is about to disappear.
+    await runWithRequestContext({ requestId: "delete-org", orgId }, () =>
+        prisma.run.updateMany({ where: { status: { in: ["queued", "running"] } }, data: { status: "cancelled", finishedAt: new Date() } })
+    );
     logger.info({ orgId, actorId }, "workspace deleted");
     return { deleted: true };
 };

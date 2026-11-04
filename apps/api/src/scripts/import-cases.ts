@@ -2,12 +2,13 @@ import "dotenv/config";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../db/prisma";
-import { runAsSystem, runWithRequestContext } from "../utils/requestContext";
+import { runWithRequestContext } from "../utils/requestContext";
 import { createTask, updateTask } from "../services/task.service";
 import { importExamples } from "../services/example.service";
 import { contentHash, createPrompt } from "../services/prompt.service";
 import { parsePromptFile } from "../prompts/promptFile";
 import { closeAll } from "./closeAll";
+import { flag, resolveOrgId } from "./resolveOrg";
 import { createTaskSchema, promptBodySchema } from "@repo/types";
 import { sameJson } from "../utils/stableJson";
 
@@ -20,38 +21,11 @@ import { sameJson } from "../utils/stableJson";
   workspace "Case studies" owned by the first platform admin, so a fresh clone and CI can load a case
   with one command. Phase 12 adds examples from data/*.jsonl, Phase 13 prompts from prompts/*.md.
  */
-const flag = (args: string[], name: string): string | undefined => {
-    const index = args.indexOf(name);
-    return index !== -1 ? args[index + 1] : undefined; // check -1 first: args[indexOf + 1] reads args[0] when absent
-};
-
 const parseArgs = (args: string[]) => {
     const caseSlug = flag(args, "--case");
     if (!caseSlug || !/^[a-z0-9-]+$/.test(caseSlug)) throw new Error("--case <slug> is required (e.g. job-postings)");
     const check = args.includes("--check");
     return { caseSlug, orgId: flag(args, "--org"), email: flag(args, "--email"), check, dryRun: check || args.includes("--dry-run") };
-};
-
-const CASE_ORG_NAME = "Case studies";
-
-const resolveOrgId = async (opts: { orgId?: string; email?: string }): Promise<string> => {
-    if (opts.orgId) return opts.orgId;
-    return runAsSystem(async () => {
-        if (opts.email) {
-            const user = await prisma.user.findUnique({ where: { email: opts.email.toLowerCase() } });
-            if (!user) throw new Error(`No user ${opts.email}`);
-            const membership = await prisma.membership.findFirst({ where: { userId: user.id, role: "owner" }, orderBy: { createdAt: "asc" } });
-            if (!membership) throw new Error(`${opts.email} owns no workspace`);
-            return membership.orgId;
-        }
-        const admin = await prisma.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
-        if (!admin) throw new Error('No platform admin to own the "Case studies" workspace: pass --org <orgId> or --email <you>');
-        const existing = await prisma.org.findFirst({ where: { name: CASE_ORG_NAME, createdById: admin.id } });
-        if (existing) return existing.id;
-        const org = await prisma.org.create({ data: { name: CASE_ORG_NAME, createdById: admin.id } });
-        await prisma.membership.create({ data: { orgId: org.id, userId: admin.id, role: "owner" } });
-        return org.id;
-    });
 };
 
 const main = async () => {

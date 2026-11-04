@@ -168,6 +168,7 @@ model Run {
   notes          String?
   startedById    String    @map("started_by") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)   // moves with every counter update; the sweeper looks for stalled runs (Phase 17)
   finishedAt     DateTime? @map("finished_at") @db.Timestamptz(3)
   publishedSlug  String?   @unique @map("published_slug")
   publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)

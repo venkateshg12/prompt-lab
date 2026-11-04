@@ -3,6 +3,9 @@ import http from "node:http";
 import { connectDB, disconnectDB, isDbHealthy } from "./config/db";
 import { emailWorker } from "./jobs/workers/email.worker";
 import { maintenanceWorker } from "./jobs/workers/maintenance.worker";
+import { runCellWorker } from "./jobs/workers/runCell.worker";
+import { runFinalizeWorker } from "./jobs/workers/runFinalize.worker";
+import { closePubSub } from "./utils/events/pubsub";
 import { maintenanceQueue } from "./jobs/queues/maintenance.queue";
 import { JOB_NAMES } from "./constants/queue";
 import { WORKER_PORT } from "./constants/env";
@@ -17,8 +20,13 @@ export const initSchedulers = async () => {
       { pattern: "15 * * * *" },
       { name: JOB_NAMES.MAINTENANCE.PURGE_EXPIRED }
     );
-    // Phase 17: the stale-run sweeper scheduler
-    logger.info("Maintenance job schedulers initialized (purge-expired)");
+    // Runs that stopped progressing (a crash between "run committed" and "cells enqueued"): every 5 minutes.
+    await maintenanceQueue.upsertJobScheduler(
+      "sweep-stale-runs",
+      { every: 5 * 60_000 },
+      { name: JOB_NAMES.MAINTENANCE.SWEEP_STALE_RUNS }
+    );
+    logger.info("Maintenance job schedulers initialized (purge-expired, sweep-stale-runs)");
   } catch (err) {
     logger.error({ err }, "Failed to initialize maintenance job scheduler");
   }
@@ -26,8 +34,9 @@ export const initSchedulers = async () => {
 
 /** Stops queue workers from taking new jobs and waits for the ones in flight. */
 export const closeWorkers = async () => {
-  await Promise.all([emailWorker.close(), maintenanceWorker.close()]);
-  // Phase 17: await closePubSub(); Phase 29: await flushObservability();
+  await Promise.all([emailWorker.close(), maintenanceWorker.close(), runCellWorker.close(), runFinalizeWorker.close()]);
+  await closePubSub();
+  // Phase 29: await flushObservability();
 };
 
 /** A small HTTP server for container health checks when the worker runs as its own process. */
@@ -47,6 +56,8 @@ export function createHealthServer(port: number = Number(WORKER_PORT) || 8080): 
         const workersStatus = {
           email: emailWorker.isRunning(),
           maintenance: maintenanceWorker.isRunning(),
+          runCell: runCellWorker.isRunning(),
+          runFinalize: runFinalizeWorker.isRunning(),
         };
         const healthy = dbOk && redisOk && Object.values(workersStatus).every(Boolean);
 
@@ -85,7 +96,7 @@ async function startWorker() {
   await connectDB();
   await initSchedulers();
   healthServer = createHealthServer();
-  logger.info("Background worker process initialized (email, maintenance)");
+  logger.info("Background worker process initialized (email, maintenance, run-cell, run-finalize)");
 }
 
 /*

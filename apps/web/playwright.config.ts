@@ -35,12 +35,15 @@ const apiEnv: Record<string, string> = {
   GMAIL_CLIENT_SECRET: "",
   GMAIL_REFRESH_TOKEN: "",
   RUN_WORKERS_IN_API: "true",
-  // Providers (Phase 14): no real keys; only the fake:* model is seeded, so no E2E run can call a paid API.
-  NVIDIA_API_KEY: "",
+  // Providers: the NVIDIA adapter talks to a local, deterministic stub (e2e/stubs/nim-stub.js) with a fake
+  // key, so the real queue/worker/scorer run with known answers and no E2E run can reach a paid API.
+  NVIDIA_API_KEY: "e2e-key",
+  NVIDIA_BASE_URL: "http://127.0.0.1:5997",
   OPENAI_API_KEY: "",
   ANTHROPIC_API_KEY: "",
   GEMINI_API_KEY: "",
-  MODELS_SEED: "test",
+  MODELS_SEED: "",
+  CELL_BACKOFF_MS: "20",
 };
 
 export default defineConfig({
@@ -58,6 +61,13 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: [
+    {
+      command: "node e2e/stubs/nim-stub.js",
+      cwd: __dirname,
+      url: "http://127.0.0.1:5997/__health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
     {
       command:
         "pnpm --filter api db:ensure && pnpm --filter api db:migrate && pnpm --filter api db:seed-models && pnpm --filter api exec tsx src/index.ts",

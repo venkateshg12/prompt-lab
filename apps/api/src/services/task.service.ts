@@ -78,15 +78,16 @@ export const updateTask = async (orgId: string, id: string, body: UpdateTaskBody
             },
             tx
         );
-        // Phase 17: runsAffected = count of runs with taskVersion < task.version
-        return { task, versionBumped: defining.length > 0 };
+        // Runs scored with an earlier version stay explainable (the audit row keeps the old definition).
+        const runsAffected = defining.length ? await tx.run.count({ where: { taskId: id, taskVersion: { lt: task.version } } }) : 0;
+        return { task, versionBumped: defining.length > 0, runsAffected };
     });
     await cache.bump("tasks"); // after the commit
     return result;
 };
 
 export const deleteTask = async (id: string) => {
-    // Phase 17: refuse with 409 when the task has runs ("archive instead"); cascades examples + prompts.
+    appAssert(!(await prisma.run.count({ where: { taskId: id } })), CONFLICT, "This task has runs. Archive it instead.");
     const { count } = await prisma.task.deleteMany({ where: { id } });
     appAssert(count === 1, NOT_FOUND, "Task not found");
     await cache.bump("tasks");

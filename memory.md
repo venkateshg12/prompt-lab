@@ -23,4 +23,5 @@ Built phase by phase from `docs/phases/`. Rules in `CLAUDE.md`. Status in `track
 
 ## Built so far
 - Part A done (Phases 00–09, 4 Nov 2026): monorepo, Express bootstrap, pino logging, Prisma/PG + tenant extension, accounts/sessions/rotation, authenticate/Google/reset, limiters, versioned cache, BullMQ + email + DLQ + purge, Next 16 web foundation. Tables so far: users, sessions, verification_links.
-- E2E: `pnpm --filter web e2e` (Playwright, own DB `promptlab_e2e`, 6 auth specs green).
+- Part B through Phase 17: workspaces, tasks+DSL, test sets, prompt versions, model registry+adapters, techniques+probe, scoring lib (100% branch), runner (cell jobs, sweeper, DLQ, SSE, CLI `bench`).
+- E2E: `pnpm --filter web e2e` (Playwright, own DB `promptlab_e2e`, local NIM stub `e2e/stubs/nim-stub.js` as an oracle model; 16 specs green). Unit: `pnpm test` (scoring 75, api 40).

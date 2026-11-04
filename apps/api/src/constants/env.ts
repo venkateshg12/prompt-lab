@@ -101,3 +101,8 @@ export const MODELS_SEED = getEnv("MODELS_SEED", "");
 // Overridable only so tests can point the adapters at a local stub server.
 export const ANTHROPIC_BASE_URL = getEnv("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
 export const GEMINI_BASE_URL = getEnv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com");
+
+// Runner (Phase 17). Cell retry backoff base in ms (tests set 20). Production sets OWNER_RUNS_REQUIRE_ADMIN=true
+// so only a platform admin can start runs on the server's model keys.
+export const CELL_BACKOFF_MS = Number(getEnv("CELL_BACKOFF_MS", "5000"));
+export const OWNER_RUNS_REQUIRE_ADMIN = getEnv("OWNER_RUNS_REQUIRE_ADMIN", "false");

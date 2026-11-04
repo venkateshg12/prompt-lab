@@ -9,3 +9,4 @@ export * from "./task";
 export * from "./caseLine";
 export * from "./prompt";
 export * from "./model";
+export * from "./run";

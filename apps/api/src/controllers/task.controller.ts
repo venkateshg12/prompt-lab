@@ -22,9 +22,8 @@ export const getTaskHandler = catchError(async (req, res) => {
 
 export const updateTaskHandler = catchError(async (req, res) => {
     const body = updateTaskSchema.parse(req.body);
-    const { task, versionBumped } = await updateTask(req.orgId, idSchema("task id").parse(req.params.taskId), body, actorOf(req));
-    // Phase 17: + runsAffected
-    res.status(OK).json(ok({ task, versionBumped, version: task.version }));
+    const { task, versionBumped, runsAffected } = await updateTask(req.orgId, idSchema("task id").parse(req.params.taskId), body, actorOf(req));
+    res.status(OK).json(ok({ task, versionBumped, version: task.version, runsAffected }));
 });
 
 export const deleteTaskHandler = catchError(async (req, res) => {

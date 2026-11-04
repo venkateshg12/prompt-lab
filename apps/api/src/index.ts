@@ -5,6 +5,7 @@ import { createApp } from "./app";
 import { logger } from "./utils/logger";
 import { connectDB, disconnectDB } from "./config/db";
 import { cache } from "./utils/cache";
+import { closePubSub } from "./utils/events/pubsub";
 
 async function main() {
     await connectDB();
@@ -62,7 +63,7 @@ async function main() {
             if (closeWorkers) {
                 await closeWorkers();
             }
-            // Phase 17: await closePubSub()
+            await closePubSub();
             await cache.close();
             await disconnectDB();
             // Phase 29: await flushObservability()

@@ -14,9 +14,10 @@ test.describe("Phase 14 — model registry (real session)", () => {
     const models = (await (await page.context().request.get(`${API}/models`)).json()) as {
       data: { key: string; provider: string; enabled: boolean; priceCheckedOn: string; inputUsdMicrosPerMTok: number }[];
     };
-    // The E2E API has no provider keys and MODELS_SEED=test: only the fake model, so no paid call is possible.
-    expect(models.data.map((m) => m.key)).toEqual(["fake:text"]);
-    expect(models.data[0]).toMatchObject({ provider: "fake", enabled: true, inputUsdMicrosPerMTok: 1_000_000 });
-    expect(models.data[0]!.priceCheckedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // The E2E API has a (fake) NVIDIA key pointing at a local stub, and no other provider keys: only the
+    // NVIDIA models and the fake model are listed, and no E2E run can reach a paid API.
+    expect(models.data.map((m) => m.key).sort()).toEqual(["fake:text", "nvidia:nvidia/nemotron-3-super-120b-a12b", "nvidia:openai/gpt-oss-20b"]);
+    expect(models.data.find((m) => m.key === "fake:text")).toMatchObject({ provider: "fake", enabled: true, inputUsdMicrosPerMTok: 1_000_000 });
+    for (const m of models.data) expect(m.priceCheckedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

@@ -28,4 +28,23 @@ export const orgInvitePayloadSchema = z.object({
   token: z.string().min(1),
 });
 
-// Phase 17: RunFinishedPayload, RunCellPayload
+export interface RunFinishedPayload {
+  runId: string;
+  orgId: string;
+  startedById: string;
+  taskName: string;
+  status: "completed" | "cancelled";
+  totalCells: number;
+  errorCells: number;
+}
+
+export const runFinishedPayloadSchema = z.object({
+  runId: z.string().min(1),
+  orgId: z.string().min(1),
+  startedById: z.string().min(1),
+  taskName: z.string().min(1),
+  status: z.enum(["completed", "cancelled"]),
+  totalCells: z.number().int(),
+  errorCells: z.number().int(),
+});
+// Cell and finalize payloads live in @repo/types (cellPayloadSchema, finalizePayloadSchema).

@@ -9,7 +9,7 @@ import { parseCsv } from "../utils/importers/csv";
 import { recordAudit, type AuditActor } from "./audit.service";
 import { getTask } from "./task.service";
 import appAssert from "../utils/errors/appAssert";
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from "../constants/https";
+import { BAD_REQUEST, CONFLICT, FORBIDDEN, NOT_FOUND } from "../constants/https";
 import {
     answerSchemaFor,
     caseLineSchema,
@@ -236,7 +236,7 @@ export const updateExample = async (orgId: string, taskId: string, id: string, b
             );
         }
         if (body.split === "dev" && before.split === "test") {
-            // Phase 17: flag when a test run already used it
+            // detectTestReuse (runner/createRun) counts this audit row: the next test run is flagged testReused.
             await recordAudit({ orgId, actor, action: "example.split_moved", target: { type: "example", id }, diff: { from: "test", to: "dev" } }, tx);
         }
         return example;
@@ -246,7 +246,7 @@ export const updateExample = async (orgId: string, taskId: string, id: string, b
 };
 
 export const deleteExample = async (taskId: string, id: string) => {
-    // Phase 17: 409 if results reference it
+    appAssert(!(await prisma.result.count({ where: { exampleId: id } })), CONFLICT, "Runs reference this example: it can no longer be deleted");
     const { count } = await prisma.example.deleteMany({ where: { id, taskId } });
     appAssert(count === 1, NOT_FOUND, "Example not found");
     await cache.bump("tasks");
@@ -261,7 +261,8 @@ const order = (slug: string, ref: string) => createHash("sha256").update(`${slug
   always puts at least one example on each side.
  */
 export const autoSplit = async (orgId: string, taskId: string, body: AutoSplitBody, actor: AuditActor) => {
-    // Phase 17: reassign: true only while the task has no test run
+    // Reassigning would reshuffle a protocol that already ran: refused once the task has a test run.
+    appAssert(!(body.reassign && (await prisma.run.count({ where: { taskId, split: "test" } })) > 0), CONFLICT, "This task already has a test run: the split can no longer be reassigned");
     const task = await getTask(taskId);
     const all = await prisma.example.findMany({ where: { taskId } });
     const pool = body.reassign ? all : all.filter((e) => e.tags.includes(UNSPLIT));

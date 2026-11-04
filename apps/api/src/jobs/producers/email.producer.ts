@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { JOB_NAMES } from "../../constants/queue";
-import { OrgInvitePayload, PasswordResetPayload, VerifyEmailPayload } from "../interfaces/jobPayload";
+import { OrgInvitePayload, PasswordResetPayload, RunFinishedPayload, VerifyEmailPayload } from "../interfaces/jobPayload";
 import { emailQueue } from "../queues/email.queue";
 
 // Job ids are visible in Bull Board and in Redis key names, so they carry a hash of the token, never
@@ -31,6 +31,12 @@ export class EmailProducer {
         return emailQueue.add(JOB_NAMES.EMAIL.ORG_INVITE, payload, {
             // Deduplicates so the same invite isn't queued twice
             jobId: `invite-${payload.inviteId}`,
+        });
+    }
+
+    static async sendRunFinished(payload: RunFinishedPayload) {
+        return emailQueue.add(JOB_NAMES.EMAIL.RUN_FINISHED, payload, {
+            jobId: `run-finished-${payload.runId}`, // one email per run
         });
     }
 }

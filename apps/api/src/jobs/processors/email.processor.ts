@@ -1,7 +1,8 @@
 import { Job, UnrecoverableError } from "bullmq";
 import { z } from "zod";
-import { OrgInvitePayload, PasswordResetPayload, VerifyEmailPayload, orgInvitePayloadSchema } from "../interfaces/jobPayload";
-import { getOrgInviteEmail, getPasswordResetEmail, getVerificationEmail } from "../../utils/email";
+import { OrgInvitePayload, PasswordResetPayload, RunFinishedPayload, VerifyEmailPayload, orgInvitePayloadSchema, runFinishedPayloadSchema } from "../interfaces/jobPayload";
+import { CLIENT_URL } from "../../constants/env";
+import { getRunFinishedEmail, getOrgInviteEmail, getPasswordResetEmail, getVerificationEmail } from "../../utils/email";
 import { sendEmail } from "../../services/gmail.service";
 import { AppError } from "../../utils/errors";
 import { appErrorCode } from "../../constants/appErrorCode";
@@ -146,6 +147,19 @@ export async function processOrgInvite(job: Job<OrgInvitePayload>) {
         job.log(`[Gmail] Delivering org invite email to ${email}`);
         const { messageId } = await deliver(email, getOrgInviteEmail(token, orgName, role));
         job.log(`[Success] Org invite email delivered to ${email}`);
+        return { status: "sent", deliveredAt: new Date().toISOString(), messageId };
+    });
+}
+
+export async function processRunFinished(job: Job<RunFinishedPayload>) {
+    return runWithRequestContext({ requestId: job.id! }, async () => {
+        const parsed = runFinishedPayloadSchema.safeParse(job.data);
+        if (!parsed.success) throw new UnrecoverableError(`Malformed job payload: ${parsed.error.message}`);
+        const p = parsed.data;
+        const user = await findUser(p.startedById);
+        if (!user) return { status: "skipped", reason: "User not found" };
+        job.log(`[Start] Sending run-finished email for run ${p.runId}`);
+        const { messageId } = await deliver(user.email, getRunFinishedEmail(p.taskName, p.status, p.totalCells, p.errorCells, `${CLIENT_URL}/runs/${p.runId}`));
         return { status: "sent", deliveredAt: new Date().toISOString(), messageId };
     });
 }

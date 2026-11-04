@@ -86,3 +86,14 @@ describe("complete()", () => {
         await expect(complete(nvidia, price, req)).rejects.toBeInstanceOf(ProviderNotConfigured);
     });
 });
+
+describe("busy waits are not health failures", () => {
+    it("a ProviderBusy from the lease never opens the breaker", async () => {
+        const { ProviderBusy } = await import("./errors");
+        for (let i = 0; i < 12; i++) {
+            fakeLlm.push({ kind: "error", error: new ProviderBusy("fake:text") });
+            await expect(complete(model, price, req)).rejects.toBeInstanceOf(ProviderBusy);
+        }
+        expect(breakerFor("fake:text").getState()).toBe(CircuitState.CLOSED);
+    });
+});

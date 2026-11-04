@@ -30,4 +30,8 @@ export const getOrgInviteEmail = (token: string, orgName: string, role: string) 
     };
 };
 
-// Phase 17: getRunFinishedEmail
+export const getRunFinishedEmail = (taskName: string, status: string, totalCells: number, errorCells: number, runUrl: string) => ({
+    subject: `Your run on ${taskName} ${status === "completed" ? "finished" : status} — Prompt Lab`,
+    text: `Your run on "${taskName}" ${status}: ${totalCells} cells, ${errorCells} error cell${errorCells === 1 ? "" : "s"}. Open the results: ${runUrl}`,
+    html: `<p>Your run on <strong>${taskName.replace(/</g, "&lt;")}</strong> ${status}.</p><p>${totalCells} cells, ${errorCells} error cell${errorCells === 1 ? "" : "s"}.</p><p><a href="${runUrl}">Open the results</a></p>`,
+});

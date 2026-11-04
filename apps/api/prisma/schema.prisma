@@ -67,6 +67,20 @@ enum StructuredSupport {
   untested
 }
 
+enum RunStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum ResultStatus {
+  scored
+  error
+  skipped
+}
+
 enum Split {
   dev
   test
@@ -227,7 +241,7 @@ model Task {
   org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   examples Example[]
   prompts  PromptVersion[]
-  // Phase 17: runs
+  runs     Run[]
 
   @@unique([orgId, slug])
   @@map("tasks")
@@ -251,7 +265,7 @@ model Example {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  // Phase 17: results Result[]
+  results Result[]
 
   @@unique([taskId, ref])
   @@index([taskId, split])
@@ -275,7 +289,7 @@ model PromptVersion {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  // Phase 17: variants RunVariant[]
+  variants RunVariant[]
 
   @@unique([taskId, key, version])
   @@map("prompt_versions")
@@ -300,7 +314,95 @@ model Model {
   structuredProbedAt     DateTime?         @map("structured_probed_at") @db.Timestamptz(3)
   active                 Boolean           @default(true) // false = retired (410) or removed
 
-  // Phase 17: variants RunVariant[]
+  variants RunVariant[]
 
   @@map("models")
+}
+
+// ── Runs and results (Phase 17) ──────────────────────────────────────────────────────────────────
+
+model Run {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  orgId           String    @map("org_id") @db.Uuid
+  taskId          String    @map("task_id") @db.Uuid
+  taskVersion     Int       @map("task_version")
+  split           Split
+  repeats         Int       @default(1)
+  temperature     Float     @default(0)
+  status          RunStatus @default(queued)
+  datasetHash     String    @map("dataset_hash") // sha256 of the examples' (ref, revision) list
+  testReused      Boolean   @default(false) @map("test_reused")
+  pricesSnapshot  Json      @map("prices_snapshot")
+  promptSnapshots Json      @map("prompt_snapshots") // rendered system/turns/schema per variant, written by createRun
+  totalCells      Int       @map("total_cells")
+  doneCells       Int       @default(0) @map("done_cells")
+  errorCells      Int       @default(0) @map("error_cells")
+  notes           String?
+  startedById     String    @map("started_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  // Moves with every counter update: the stale-run sweeper looks for runs that stopped progressing.
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(3)
+  // Phase 22: publishedSlug, publishedAt, publishOptions
+
+  task     Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  variants RunVariant[]
+  results  Result[]
+
+  @@index([orgId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("runs")
+}
+
+// One prompt version x one model in a run.
+model RunVariant {
+  id              String @id @default(uuid(7)) @db.Uuid
+  orgId           String @map("org_id") @db.Uuid
+  runId           String @map("run_id") @db.Uuid
+  promptVersionId String @map("prompt_version_id") @db.Uuid
+  modelId         String @map("model_id") @db.Uuid
+  summary         Json? // aggregates (scoring-rules.md §3), written by finalize (Phase 18)
+
+  run           Run           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  promptVersion PromptVersion @relation(fields: [promptVersionId], references: [id])
+  model         Model         @relation(fields: [modelId], references: [id])
+  results       Result[]
+
+  @@unique([runId, promptVersionId, modelId])
+  @@map("run_variants")
+}
+
+model Result {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  orgId         String       @map("org_id") @db.Uuid
+  runId         String       @map("run_id") @db.Uuid
+  variantId     String       @map("variant_id") @db.Uuid
+  exampleId     String       @map("example_id") @db.Uuid
+  repeatIndex   Int          @map("repeat_index")
+  status        ResultStatus
+  rawOutput     String?      @map("raw_output")
+  extractedText String?      @map("extracted_text")
+  parsedJson    Json?        @map("parsed_json")
+  validJson     Boolean?     @map("valid_json")
+  schemaValid   Boolean?     @map("schema_valid")
+  fieldScores   Json?        @map("field_scores") // [{ key, score, reason }]
+  fieldDetails  Json?        @map("field_details") // { skills: { precision, recall }, ... }
+  overallScore  Float?       @map("overall_score")
+  exactMatch    Boolean?     @map("exact_match")
+  inputTokens   Int?         @map("input_tokens")
+  outputTokens  Int?         @map("output_tokens")
+  costUsdMicros Int?         @map("cost_usd_micros")
+  latencyMs     Int?         @map("latency_ms")
+  finishReason  String?      @map("finish_reason")
+  attempts      Int          @default(1)
+  error         String? // also skip reasons: "structured_unsupported", "cancelled"
+  // Phase 26: judge Json?
+  completedAt   DateTime     @default(now()) @map("completed_at") @db.Timestamptz(3)
+
+  run     Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  variant RunVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  example Example    @relation(fields: [exampleId], references: [id])
+
+  @@unique([runId, variantId, exampleId, repeatIndex]) // one result per cell, even on retries
+  @@index([runId, variantId, overallScore])
+  @@map("results")
 }

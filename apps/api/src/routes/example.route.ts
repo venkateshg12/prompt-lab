@@ -23,4 +23,4 @@ exampleRouter.get("/export.jsonl", requireOrgRole("tasks.read"), exportExamplesH
 exampleRouter.get("/:exampleId", requireOrgRole("tasks.read"), getExampleHandler);
 exampleRouter.patch("/:exampleId", requireOrgRole("examples.manage"), updateExampleHandler);
 exampleRouter.put("/:exampleId/second-label", requireOrgRole("examples.second_label"), secondLabelHandler);
-exampleRouter.delete("/:exampleId", requireOrgRole("examples.manage"), deleteExampleHandler); // Phase 17: 409 if results reference it
+exampleRouter.delete("/:exampleId", requireOrgRole("examples.manage"), deleteExampleHandler);
