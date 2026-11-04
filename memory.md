@@ -18,4 +18,5 @@ Built phase by phase from `docs/phases/`. Rules in `CLAUDE.md`. Status in `track
 - Standalone worker has its own dev mailbox (in-process memory), so `/auth/dev/latest-link` only works with workers in the API.
 
 ## Built so far
-- Nothing yet (plan only, 3 Nov 2026).
+- Part A done (Phases 00–09, 4 Nov 2026): monorepo, Express bootstrap, pino logging, Prisma/PG + tenant extension, accounts/sessions/rotation, authenticate/Google/reset, limiters, versioned cache, BullMQ + email + DLQ + purge, Next 16 web foundation. Tables so far: users, sessions, verification_links.
+- E2E: `pnpm --filter web e2e` (Playwright, own DB `promptlab_e2e`, 6 auth specs green).

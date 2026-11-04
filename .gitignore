@@ -85,3 +85,8 @@ storybook-static/
 apps/api/src/generated/
 # CLI output (Phase 17); exported results you want to keep go under cases/<task>/runs/
 apps/api/out/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
