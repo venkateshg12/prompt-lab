@@ -4,6 +4,7 @@ import { fail } from "../utils/api";
 import { BAD_REQUEST, INTERNAL_SERVER_ERROR, PAYLOAD_TOO_LARGE } from "../constants/https";
 import { appErrorCode } from "../constants/appErrorCode";
 import z from "zod";
+import { logger } from "../utils/logger";
 
 /*
   Validation failures stay inside the envelope like every other error, with the field path on each
@@ -39,11 +40,11 @@ export function errorHandler(
     // Phase 04: clear auth cookies on the refresh path
     if (error instanceof AppError) {
         if (error.statusCode >= 500) {
-            console.error(error.message, error); // Phase 02: logger
+            logger.error({ err: error }, error.message);
         }
         return res.status(error.statusCode).json(fail(error.message, error.errorCode ?? "APP_ERROR"));
     }
-    console.error("unhandled error", error); // Phase 02: logger
+    logger.error({ err: error }, "unhandled error");
     // Phase 29: Sentry.captureException
 
     return res.status(INTERNAL_SERVER_ERROR).json(fail("Internal Server Error", "INTERNAL_SERVER_ERROR"));

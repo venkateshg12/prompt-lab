@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { logger } from "./utils/logger";
 
 /*
   The queue workers' entry point. Phase 08 adds the email and maintenance workers, Phase 17 the
@@ -9,5 +10,5 @@ export const initSchedulers = async () => {};
 export const closeWorkers = async () => {};
 
 if (require.main === module) {
-    console.log("worker started (no workers until Phase 08)"); // Phase 02: logger
+    logger.info("worker started (no workers until Phase 08)");
 }

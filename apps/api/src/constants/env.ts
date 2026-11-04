@@ -19,5 +19,7 @@ export const CORS_ORIGIN = getEnv("CORS_ORIGIN");
   so links use this single origin, defaulting to the first one allowed.
  */
 export const CLIENT_URL = getEnv("CLIENT_URL", CORS_ORIGIN.split(",")[0].trim());
+export const LOG_LEVEL = getEnv("LOG_LEVEL", "info");
+export const SERVICE_NAME = getEnv("SERVICE_NAME", "api");
 // "false" in production, where src/worker.ts runs as its own process.
 export const RUN_WORKERS_IN_API = getEnv("RUN_WORKERS_IN_API", "true");

@@ -6,6 +6,7 @@ import { CORS_ORIGIN, NODE_ENV } from "./constants/env";
 import { ok } from "./utils/api";
 import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
+import { requestId } from "./middleware/requestId";
 
 /*
   Builds the Express app with no side effects: no listen, no DB connection. index.ts runs it;
@@ -14,7 +15,8 @@ import { errorHandler } from "./middleware/errorHandler";
 export const createApp = () => {
     const app = express();
 
-    // Phase 02: requestId first. Phase 06: trust proxy + limiters.
+    // First, so even a helmet or CORS rejection carries an id. Phase 06: trust proxy + limiters.
+    app.use(requestId);
     app.use(
         helmet({
             crossOriginResourcePolicy: { policy: "cross-origin" },
