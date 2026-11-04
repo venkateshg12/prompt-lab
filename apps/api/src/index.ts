@@ -4,6 +4,7 @@ import { NODE_ENV, PORT, RUN_WORKERS_IN_API, TRUSTED_PROXY_CIDRS } from "./const
 import { createApp } from "./app";
 import { logger } from "./utils/logger";
 import { connectDB, disconnectDB } from "./config/db";
+import { cache } from "./utils/cache";
 
 async function main() {
     await connectDB();
@@ -62,7 +63,7 @@ async function main() {
                 await closeWorkers();
             }
             // Phase 17: await closePubSub()
-            // Phase 07: await cache.close()
+            await cache.close();
             await disconnectDB();
             // Phase 29: await flushObservability()
             logger.info("[shutdown] complete");

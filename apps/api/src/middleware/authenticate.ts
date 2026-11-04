@@ -4,8 +4,9 @@ import { appErrorCode } from "../constants/appErrorCode";
 import { verifyToken } from "../utils/auth";
 import { prisma } from "../db/prisma";
 import { isUuid } from "../db/errors";
-import { setRequestContext } from "../utils/requestContext";
+import { cache, sessionCacheKey } from "../utils/cache";
 import { AccessTokenPayload } from "../types/auth.types";
+import { setRequestContext } from "../utils/requestContext";
 
 /*
   A valid signature only proves the token was issued, not that its session is still alive. Without
@@ -13,13 +14,26 @@ import { AccessTokenPayload } from "../types/auth.types";
   access token working for up to its full 15 minutes. The signature is checked first, so forged or
   malformed tokens never reach the database.
  */
+/*
+  A confirmed-active session is remembered for 60 seconds, so most authenticated requests skip the
+  database lookup. Every revocation path goes through `revokeSessions`, which clears this key; the short
+  TTL bounds the one race that remains (a request that read the database just before a revocation
+  writing `1` just after it). With Redis unavailable the cache reads as a miss and every request
+  checks the database — it fails closed, never open.
+ */
+const SESSION_CACHE_TTL_SECONDS = 60;
+
 const assertSessionActive = async (sessionId: AccessTokenPayload["sessionId"]) => {
-    // Phase 07: return early on a cached "1" for cache:session:<id>, and cache it for 60 s after this check.
+    const key = sessionCacheKey(sessionId);
+    if (await cache.get(key)) return;
+
     // A token minted before ids were UUIDs (or a forged one) can't name a session: 401, not a query.
     const sessionIsActive =
         isUuid(sessionId) &&
         (await prisma.session.count({ where: { id: sessionId, expiresAt: { gt: new Date() } } })) > 0;
     appAssert(sessionIsActive, UNAUTHORIZED, "Session expired", appErrorCode.InvalidAccessToken);
+
+    void cache.set(key, "1", SESSION_CACHE_TTL_SECONDS);
 };
 
 const authenticate = catchError(async (req, _res, next) => {
@@ -41,6 +55,7 @@ const authenticate = catchError(async (req, _res, next) => {
     req.userId = payload.userId;
     req.sessionId = payload.sessionId;
     req.role = payload.role;
+    // ADAPT: log context (Phase 05); otherwise identical to PaperTrail
     setRequestContext({ userId: payload.userId });
     next();
 });

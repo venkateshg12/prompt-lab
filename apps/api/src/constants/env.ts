@@ -61,3 +61,6 @@ export const CACHE_REDIS_USERNAME = getEnv("CACHE_REDIS_USERNAME", REDIS_USERNAM
 export const CACHE_REDIS_PASSWORD = getEnv("CACHE_REDIS_PASSWORD", REDIS_PASSWORD);
 // Demo runs (all visitors together) per 24 h. Each run is ≤ 10 calls on the visitor's own key.
 export const DEMO_DAILY_CAP = getEnv("DEMO_DAILY_CAP", "500");
+
+// Emergency off-switch: "false" makes every cache read a miss and every write a no-op.
+export const CACHE_ENABLED = getEnv("CACHE_ENABLED", "true");

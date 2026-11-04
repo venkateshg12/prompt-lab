@@ -8,6 +8,7 @@ import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestId } from "./middleware/requestId";
 import { isDbHealthy } from "./config/db";
+import { cache } from "./utils/cache";
 import { extractClientIp, trustProxy } from "./utils/rateLimiter/ipExtractor";
 import { visitorIdMiddleware } from "./middleware/visitorId";
 import { globalLimiter } from "./config/rateLimiter";
@@ -77,12 +78,19 @@ export const createApp = () => {
         });
     }
 
-    // Health first, so routers that call router.use(authenticate) can never shadow it.
+    /*
+      Health first. Routers mounted at "/" that call `router.use(authenticate)` run for every request
+      that reaches them, so a route declared after them answers 401 instead of its own response.
+      The database check gates the status code; Redis is reported but optional (the cache degrades).
+     */
     app.get("/health", async (_req, res) => {
-        const dbUp = await isDbHealthy();
-        // Phases 06–07: redis and cache are reported here but never gate the status code.
+        const [dbUp, redisReady] = await Promise.all([isDbHealthy(), cache.ping()]);
         return res.status(dbUp ? 200 : 503).json(
-            ok({ status: dbUp ? "ok" : "degraded", database: dbUp ? "up" : "down" })
+            ok({
+                status: dbUp ? "ok" : "degraded",
+                database: dbUp ? "up" : "down",
+                redis: redisReady ? "up" : "down",
+            })
         );
     });
 

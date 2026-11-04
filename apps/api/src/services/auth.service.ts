@@ -19,6 +19,7 @@ import {
 } from "../utils/auth";
 import { RefreshTokenPayload } from "../types/auth.types";
 import { toSafeUser, type UserRecord } from "../types/user.types";
+import { cache, sessionCacheKey } from "../utils/cache";
 import { CLIENT_URL, NODE_ENV } from "../constants/env";
 import { logger } from "../utils/logger";
 
@@ -58,7 +59,7 @@ export const revokeSessions = async (where: Prisma.SessionWhereInput) => {
     const ids = sessions.map((session) => session.id);
     // By id, not by the original filter: a session created after the find is not part of this revocation.
     await prisma.session.deleteMany({ where: { id: { in: ids } } });
-    // Phase 07: await cache.del(...ids.map(sessionCacheKey));
+    await cache.del(...ids.map(sessionCacheKey));
     return ids.length;
 };
 

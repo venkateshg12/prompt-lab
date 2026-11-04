@@ -60,7 +60,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 - [x] 04 — [Accounts, sessions, refresh rotation, verification links](phase-04-accounts-sessions.md)
 - [x] 05 — [`authenticate`, device sessions, Google sign-in, password reset](phase-05-authenticate-google.md)
 - [x] 06 — [Rate limiting (+ demo and public limiters)](phase-06-rate-limiting.md)
-- [ ] 07 — [Response cache](phase-07-cache.md)
+- [x] 07 — [Response cache](phase-07-cache.md)
 - [ ] 08 — [BullMQ, DLQ and system email on the Gmail API](phase-08-queue-email.md)
 - [ ] 09 — [Next.js web foundation](phase-09-web-foundation.md)
 
