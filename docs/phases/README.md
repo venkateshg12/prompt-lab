@@ -54,7 +54,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 ### Part A — Foundation (copied)
 
 - [x] 00 — [Monorepo, packages, docker-compose](phase-00-monorepo-setup.md)
-- [ ] 01 — [API bootstrap: env, errors, envelope, `createApp`, health, shutdown](phase-01-api-bootstrap.md)
+- [x] 01 — [API bootstrap: env, errors, envelope, `createApp`, health, shutdown](phase-01-api-bootstrap.md)
 - [ ] 02 — [Logging, request ids, redaction](phase-02-logging.md)
 - [ ] 03 — [PostgreSQL + Prisma: client, tenant extension, migrations](phase-03-postgres-prisma.md)
 - [ ] 04 — [Accounts, sessions, refresh rotation, verification links](phase-04-accounts-sessions.md)
