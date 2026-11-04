@@ -75,15 +75,28 @@ export const valueSchemaFor = (rule: FieldRule): z.ZodType => {
 export const answerSchemaFor = (rules: FieldRule[]) =>
     z.object(Object.fromEntries(rules.map((r) => [r.key, valueSchemaFor(r)]))).strict();
 
-/** The {{fields}} placeholder (Phase 13/15): one line per field, with its kind, allowed values and null rule. */
+const nullNote = (nullable: boolean) => (nullable ? " or null if not stated" : "");
+
+/** The {{fields}} placeholder: one line per field with its type, allowed values, null rule and description. */
 export const fieldsList = (rules: FieldRule[]): string =>
     rules
-        .map(
-            (r) =>
-                `- ${r.key} (${r.kind}${r.kind === "enum" ? `: ${r.values.join(" | ")}` : ""})` +
-                ("nullable" in r && r.nullable ? ", null if not stated" : "") +
-                (r.description ? `: ${r.description}` : "")
-        )
+        .map((r) => {
+            const d = r.description ? `: ${r.description}` : "";
+            switch (r.kind) {
+                case "text":
+                    return `- ${r.key}: string${nullNote(r.nullable)}${d}`;
+                case "enum":
+                    return `- ${r.key}: one of ${r.values.map((v) => `"${v}"`).join(", ")}${d}`;
+                case "integer":
+                    return `- ${r.key}: integer${nullNote(r.nullable)}${d}`;
+                case "boolean":
+                    return `- ${r.key}: true or false${nullNote(r.nullable)}${d}`;
+                case "set_f1":
+                    return `- ${r.key}: array of lower-case strings${d}`;
+                case "money":
+                    return `- ${r.key}: {"min": number|null, "max": number|null, "currency": ISO 4217 code, "period": "hour"|"day"|"week"|"month"|"year"} or null if not stated${d}`;
+            }
+        })
         .join("\n");
 
 /** JSON Schema of the answer. Phase 15 derives provider-specific variants (strict, Gemini subset). */

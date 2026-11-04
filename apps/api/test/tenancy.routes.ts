@@ -20,4 +20,9 @@ export const TENANT_ROUTES = [
     { method: "patch", path: "/orgs/:orgId/tasks/:taskId/examples/:exampleId", body: { tags: [] } },
     { method: "put", path: "/orgs/:orgId/tasks/:taskId/examples/:exampleId/second-label", body: { label: {} } },
     { method: "delete", path: "/orgs/:orgId/tasks/:taskId/examples/:exampleId" },
+    { method: "get", path: "/orgs/:orgId/tasks/:taskId/prompts" },
+    { method: "get", path: "/orgs/:orgId/tasks/:taskId/prompts/:promptId" },
+    { method: "patch", path: "/orgs/:orgId/tasks/:taskId/prompts/:promptId", body: { notes: "x" } },
+    { method: "post", path: "/orgs/:orgId/tasks/:taskId/prompts/:promptId/versions", body: {} },
+    { method: "get", path: "/orgs/:orgId/tasks/:taskId/prompts/:promptId/preview?exampleId=:exampleId" },
 ] as const;

@@ -45,6 +45,14 @@ enum InviteRole {
   viewer
 }
 
+enum Technique {
+  zero_shot
+  few_shot
+  cot
+  structured
+  custom
+}
+
 enum Split {
   dev
   test
@@ -204,7 +212,8 @@ model Task {
 
   org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   examples Example[]
-  // Phase 13: prompts · Phase 17: runs
+  prompts  PromptVersion[]
+  // Phase 17: runs
 
   @@unique([orgId, slug])
   @@map("tasks")
@@ -233,4 +242,27 @@ model Example {
   @@unique([taskId, ref])
   @@index([taskId, split])
   @@map("examples")
+}
+
+// ── Prompts (Phase 13) ───────────────────────────────────────────────────────────────────────────
+
+model PromptVersion {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  orgId             String    @map("org_id") @db.Uuid
+  taskId            String    @map("task_id") @db.Uuid
+  key               String // "v2-few-shot"
+  version           Int // exported as "<key>@<version>"
+  technique         Technique
+  system            String
+  template          String // contains {{input}}, may use {{instructions}} {{fields}} {{examples}}
+  fewShotExampleIds String[]  @default([]) @map("few_shot_example_ids") @db.Uuid // dev examples only (enforced)
+  notes             String?
+  frozenAt          DateTime? @map("frozen_at") @db.Timestamptz(3) // set when first used by a run; then immutable
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // Phase 17: variants RunVariant[]
+
+  @@unique([taskId, key, version])
+  @@map("prompt_versions")
 }

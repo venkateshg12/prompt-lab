@@ -69,7 +69,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 - [x] 10 — [Workspaces, roles, invites (PaperTrail orgs)](phase-10-workspaces.md)
 - [x] 11 — [Tasks and the field-rule DSL](phase-11-tasks-field-rules.md)
 - [x] 12 — [Test sets: import, edit, split, tags, second labels](phase-12-test-sets.md)
-- [ ] 13 — [Prompt versions: templates, few-shot, freezing](phase-13-prompt-versions.md)
+- [x] 13 — [Prompt versions: templates, few-shot, freezing](phase-13-prompt-versions.md)
 - [ ] 14 — [Model registry and provider adapters](phase-14-providers.md)
 - [ ] 15 — [Techniques: few-shot, chain-of-thought, structured output + the probe](phase-15-techniques.md)
 - [ ] 16 — [The scoring library](phase-16-scoring.md)
