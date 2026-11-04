@@ -7,8 +7,7 @@ import { createTask, updateTask } from "../services/task.service";
 import { importExamples } from "../services/example.service";
 import { contentHash, createPrompt } from "../services/prompt.service";
 import { parsePromptFile } from "../prompts/promptFile";
-import { cache } from "../utils/cache";
-import { getQueueRedis } from "../config/redis";
+import { closeAll } from "./closeAll";
 import { createTaskSchema, promptBodySchema } from "@repo/types";
 import { sameJson } from "../utils/stableJson";
 
@@ -146,4 +145,4 @@ main()
         process.exitCode = 1;
     })
     // CLI scripts inherit service connections: close them or the process hangs.
-    .finally(() => Promise.allSettled([prisma.$disconnect(), cache.close(), getQueueRedis().quit()]));
+    .finally(() => closeAll());

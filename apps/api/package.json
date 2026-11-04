@@ -19,7 +19,8 @@
     "db:ensure": "tsx src/scripts/ensure-database.ts",
     "db:studio": "prisma studio",
     "import-cases": "tsx src/scripts/import-cases.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:seed-models": "tsx src/scripts/seed-models.ts"
   },
   "dependencies": {
     "@bull-board/api": "^8.1.2",

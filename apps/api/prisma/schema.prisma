@@ -53,6 +53,20 @@ enum Technique {
   custom
 }
 
+enum Provider {
+  nvidia
+  openai
+  anthropic
+  gemini
+  fake
+}
+
+enum StructuredSupport {
+  supported
+  unsupported
+  untested
+}
+
 enum Split {
   dev
   test
@@ -265,4 +279,28 @@ model PromptVersion {
 
   @@unique([taskId, key, version])
   @@map("prompt_versions")
+}
+
+// ── Model registry (Phase 14) ────────────────────────────────────────────────────────────────────
+
+// Global registry, not tenant-owned: configuration shared by every workspace.
+model Model {
+  id                     String            @id @default(uuid(7)) @db.Uuid
+  key                    String            @unique // "nvidia:openai/gpt-oss-20b"
+  provider               Provider
+  modelId                String            @map("model_id")
+  label                  String
+  contextTokens          Int?              @map("context_tokens")
+  inputUsdMicrosPerMTok  Int               @map("input_usd_micros_per_mtok")
+  outputUsdMicrosPerMTok Int               @map("output_usd_micros_per_mtok")
+  priceNote              String?           @map("price_note") // "reference host price; NVIDIA free tier"
+  priceCheckedOn         DateTime          @map("price_checked_on") @db.Date
+  structured             StructuredSupport @default(untested)
+  structuredMode         String?           @map("structured_mode") // "native" | "guided_json" (Phase 15 probe)
+  structuredProbedAt     DateTime?         @map("structured_probed_at") @db.Timestamptz(3)
+  active                 Boolean           @default(true) // false = retired (410) or removed
+
+  // Phase 17: variants RunVariant[]
+
+  @@map("models")
 }

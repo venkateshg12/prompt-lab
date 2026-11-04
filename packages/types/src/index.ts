@@ -8,3 +8,4 @@ export * from "./fieldRules";
 export * from "./task";
 export * from "./caseLine";
 export * from "./prompt";
+export * from "./model";

@@ -35,6 +35,12 @@ const apiEnv: Record<string, string> = {
   GMAIL_CLIENT_SECRET: "",
   GMAIL_REFRESH_TOKEN: "",
   RUN_WORKERS_IN_API: "true",
+  // Providers (Phase 14): no real keys; only the fake:* model is seeded, so no E2E run can call a paid API.
+  NVIDIA_API_KEY: "",
+  OPENAI_API_KEY: "",
+  ANTHROPIC_API_KEY: "",
+  GEMINI_API_KEY: "",
+  MODELS_SEED: "test",
 };
 
 export default defineConfig({
@@ -54,7 +60,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "pnpm --filter api db:ensure && pnpm --filter api db:migrate && pnpm --filter api exec tsx src/index.ts",
+        "pnpm --filter api db:ensure && pnpm --filter api db:migrate && pnpm --filter api db:seed-models && pnpm --filter api exec tsx src/index.ts",
       cwd: path.resolve(__dirname, "../.."),
       url: `${API_URL}/health`,
       env: apiEnv,

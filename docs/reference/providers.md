@@ -106,3 +106,15 @@ otherwise meaningless. Never compare a "free" NVIDIA cell with a paid OpenAI cel
 - Claude Messages API (`output_config.format`, JSON outputs): https://platform.claude.com/docs/en/api/messages
 - Gemini structured output: https://ai.google.dev/gemini-api/docs/generate-content/structured-output
 - OpenAI-style `json_schema` + `strict`: https://docs.deno.com/examples/openai_structured_output/ (verify against platform.openai.com)
+
+## Live-call status (`try-model` / `list-nvidia-models`)
+
+| Model | Status | Date |
+| --- | --- | --- |
+| `nvidia:openai/gpt-oss-20b` | adapter verified against a local NIM-shaped stub (wire format, 403/410 mapping, cost). **Live call not run: no `NVIDIA_API_KEY` in this environment.** | 4 Nov 2026 |
+| `nvidia:nvidia/nemotron-3-super-120b-a12b` | as above | 4 Nov 2026 |
+| third NVIDIA family | not chosen yet: needs `list-nvidia-models` + the probe with a key | |
+| OpenAI / Anthropic / Gemini | adapters unit-tested for request shape only; enabled when their key is set | |
+
+Prices in `models.config.ts` come from price aggregators (pricepertoken.com, anotherwrapper.com), checked
+4 Nov 2026; re-check against the host's own pricing page before any reported run.

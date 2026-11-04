@@ -86,3 +86,18 @@ export const GMAIL_SENDER_NAME = getEnv("GMAIL_SENDER_NAME", "");
 export const GMAIL_OAUTH_SETUP = getEnv("GMAIL_OAUTH_SETUP", "false");
 // Port for the worker's /health server when it runs standalone.
 export const WORKER_PORT = getEnv("WORKER_PORT", "8080");
+
+// Model providers (Phase 14). A provider's models are enabled only when its key is set.
+export const NVIDIA_API_KEY = getEnv("NVIDIA_API_KEY", "");
+export const NVIDIA_BASE_URL = getEnv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1");
+export const OPENAI_API_KEY = getEnv("OPENAI_API_KEY", "");
+export const ANTHROPIC_API_KEY = getEnv("ANTHROPIC_API_KEY", "");
+export const GEMINI_API_KEY = getEnv("GEMINI_API_KEY", "");
+export const LLM_PROVIDER = getEnv("LLM_PROVIDER", "live");
+export const REPLAY_DIR = getEnv("REPLAY_DIR", "");
+export const FAKE_LLM_SCRIPT = getEnv("FAKE_LLM_SCRIPT", "");
+export const FAKE_LLM_FIXTURES = getEnv("FAKE_LLM_FIXTURES", "");
+export const MODELS_SEED = getEnv("MODELS_SEED", "");
+// Overridable only so tests can point the adapters at a local stub server.
+export const ANTHROPIC_BASE_URL = getEnv("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
+export const GEMINI_BASE_URL = getEnv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com");
