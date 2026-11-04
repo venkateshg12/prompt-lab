@@ -20,6 +20,7 @@ import {
     type OrgRole,
     type UpdateExampleBody,
 } from "@repo/types";
+import { scoreField } from "@repo/scoring";
 import { z } from "zod";
 import type { Example } from "../generated/prisma/client";
 
@@ -331,17 +332,16 @@ export const setSecondLabel = async (orgId: string, taskId: string, id: string, 
 };
 
 /*
-  Per-field agreement between `expected` and `secondLabel` over double-labelled examples. Until Phase 16
-  exists "agree" means equal after JSON canonicalisation; Phase 16 swaps in the field scorers (so
-  ["JS"] vs ["javascript"] agree, and LPA vs monthly agree within 5 %).
+  Per-field agreement between `expected` and `secondLabel` over double-labelled examples, using the SAME
+  field scorers as scoring (so ["JS"] and ["javascript"] agree, and "3-5 LPA" agrees with its monthly
+  form within the tolerance). Disagreements are for the owner to resolve by editing `expected`.
  */
 export const agreement = async (taskId: string) => {
     const { rules } = await loadTaskAnswerSchema(taskId);
     const both = await prisma.example.findMany({ where: { taskId, secondLabelById: { not: null } } });
-    const same = (a: unknown, b: unknown) => sameJson(a, b); // Phase 16: scoreField(rule, a, b) === 1
     const fields = rules.map((rule) => {
         const disagreements = both
-            .filter((e) => !same((e.expected as Record<string, unknown>)?.[rule.key], (e.secondLabel as Record<string, unknown>)?.[rule.key]))
+            .filter((e) => scoreField(rule, e.secondLabel as Record<string, unknown>, e.expected as Record<string, unknown>)[0].score !== 1)
             .map((e) => e.ref);
         const agree = both.length - disagreements.length;
         return { key: rule.key, agree, total: both.length, rate: both.length ? agree / both.length : null, disagreements };

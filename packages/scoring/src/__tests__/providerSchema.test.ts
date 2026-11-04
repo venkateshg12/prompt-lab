@@ -34,12 +34,30 @@ describe("toOpenAiStrict", () => {
     });
 });
 
+describe("toOpenAiStrict: edge shapes", () => {
+    it("an object with no properties or required, and a key that is already nullable", () => {
+        expect(toOpenAiStrict({ type: "object" })).toEqual({ type: "object", properties: {}, required: [], additionalProperties: false });
+        const out = toOpenAiStrict({ type: "object", properties: { n: { type: ["integer", "null"] } } }) as any;
+        expect(out.properties.n).toEqual({ type: ["integer", "null"] });
+        expect(out.required).toEqual(["n"]);
+    });
+    it("walks arrays and anyOf, and leaves scalars alone", () => {
+        const out = toOpenAiStrict({ type: "object", properties: { xs: { type: "array", items: { type: "object", properties: { a: { type: "string" } } } }, u: { anyOf: [{ type: "string", format: "date" }, { type: "null" }] } }, required: ["xs", "u"] }) as any;
+        expect(out.properties.xs.items.additionalProperties).toBe(false);
+        expect(out.properties.u.anyOf[0]).toEqual({ type: "string" });
+    });
+});
+
 describe("toAnthropicSchema", () => {
     it("adds additionalProperties:false to objects and drops $schema", () => {
         const out = toAnthropicSchema({ $schema: "x", type: "object", properties: { m: { type: "object", properties: {} } } }) as any;
         expect(out.$schema).toBeUndefined();
         expect(out.additionalProperties).toBe(false);
         expect(out.properties.m.additionalProperties).toBe(false);
+    });
+    it("leaves scalar nodes alone", () => {
+        const out = toAnthropicSchema({ type: "object", properties: { s: { type: "string" } } }) as any;
+        expect(out.properties.s).toEqual({ type: "string" });
     });
 });
 

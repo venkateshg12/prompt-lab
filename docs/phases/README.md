@@ -72,7 +72,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 - [x] 13 — [Prompt versions: templates, few-shot, freezing](phase-13-prompt-versions.md)
 - [ ] 14 — [Model registry and provider adapters](phase-14-providers.md)
 - [ ] 15 — [Techniques: few-shot, chain-of-thought, structured output + the probe](phase-15-techniques.md)
-- [ ] 16 — [The scoring library](phase-16-scoring.md)
+- [x] 16 — [The scoring library](phase-16-scoring.md)
 - [ ] 17 — [The runner: cells, limits, retries, progress, DLQ, CLI](phase-17-runner.md)
 - [ ] 18 — [Aggregation: the results table, intervals, subsets](phase-18-aggregation.md)
 

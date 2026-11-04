@@ -4,16 +4,22 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": { "@repo/types": "workspace:*", "zod": "^4.4.3" },
+  "dependencies": {
+    "@repo/types": "workspace:*",
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
+    "@vitest/coverage-v8": "^5.0.5",
     "typescript": "5.9.2",
     "vitest": "^5.0.5"
   }
