@@ -49,7 +49,13 @@ export const spentThisMonthMicros = async (): Promise<bigint> => {
   Validates the grid and prices it, with NO writes. `POST /runs/estimate` returns this; createRun
   builds on it, so the estimate and the real run can never disagree about what is allowed.
  */
-export const planRun = async (orgId: string, body: CreateRun, opts: { requireEnabled?: boolean } = {}) => {
+export const planRun = async (orgId: string, body: CreateRun, opts: { requireEnabled?: boolean; skipFinalCheck?: boolean } = {}) => {
+    appAssert(
+        body.split !== "test" || body.confirmFinal || opts.skipFinalCheck,
+        BAD_REQUEST,
+        "The test split is for final numbers: confirm this is a final run (confirmFinal)",
+        appErrorCode.TestReused
+    );
     const task = await getTask(body.taskId); // tenant-scoped; 404 for another workspace's task
     const prompts = await prisma.promptVersion.findMany({ where: { id: { in: body.promptVersionIds }, taskId: task.id } });
     appAssert(prompts.length === new Set(body.promptVersionIds).size, NOT_FOUND, "Prompt version not found");

@@ -25,13 +25,15 @@ export const publishProgress = (message: Omit<RunProgress, "at">) => {
  * Throttled to one message per run per 500 ms (`SET pl:progress:<runId> 1 NX PX 500`), except the final
  * message, which always goes out. 3,000 cells finishing in a minute is not 3,000 browser updates.
  */
-export const publishRunProgress = async (message: Omit<RunProgress, "at">) => {
+export const publishRunProgress = async (message: Omit<RunProgress, "at">, enrich?: () => Promise<Partial<RunProgress>>) => {
     const final = message.status !== "running" && message.status !== "queued" || message.doneCells >= message.totalCells;
     if (!final) {
         const acquired = await publisher.set(`pl:progress:${message.runId}`, "1", "PX", 500, "NX").catch(() => "OK");
         if (acquired !== "OK") return 0;
     }
-    return publishProgress(message);
+    // Only messages that pass the throttle pay for the extra aggregates (cost so far, skipped count).
+    const extra = enrich ? await enrich().catch(() => ({})) : {};
+    return publishProgress({ ...message, ...extra });
 };
 
 const ensureSubscriber = () => {
