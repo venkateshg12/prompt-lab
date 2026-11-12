@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RuleEditor, RulesTable, SchemaViewer } from "@/components/tasks/RulesPanel";
 import { ExamplesTab } from "@/components/examples/ExamplesTab";
 import { PromptsTab } from "@/components/prompts/PromptsTab";
+import { RunsList } from "@/components/runs/RunsList";
 import { useTask, useTasks } from "@/hooks/tasks/useTasks";
 import { useCurrentOrg } from "@/hooks/org/useCurrentOrg";
 
@@ -54,7 +55,7 @@ function TaskPage() {
         </TabsContent>
         <TabsContent value="examples" className="pt-4"><ExamplesTab taskId={taskId} fields={task.fields} hasTestRun={hasTestRun} /></TabsContent>
         <TabsContent value="prompts" className="pt-4"><PromptsTab taskId={taskId} /></TabsContent>
-        <TabsContent value="runs" className="pt-4"><p className="text-sm text-muted-foreground" data-testid="runs-placeholder">Runs for this task appear here (Phase 20).</p></TabsContent>
+        <TabsContent value="runs" className="pt-4"><RunsList taskId={taskId} /></TabsContent>
       </Tabs>
     </div>
   );
