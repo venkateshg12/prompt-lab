@@ -6,6 +6,7 @@ import { runFinalizeQueue } from "../jobs/queues/runFinalize.queue";
 import { JOB_NAMES } from "../constants/queue";
 import type { CellPayload } from "@repo/types";
 import type { CellOutcome } from "./executeCell";
+import { runTotals } from "./totals";
 
 const json = (v: unknown): Prisma.InputJsonValue | undefined => (v === null || v === undefined ? undefined : (v as Prisma.InputJsonValue));
 
@@ -54,13 +55,10 @@ export const persistCell = async (p: CellPayload, outcome: CellOutcome): Promise
                 select: { id: true, status: true, doneCells: true, errorCells: true, totalCells: true },
             });
         });
-        await publishRunProgress({
-            runId: run.id,
-            status: run.status,
-            doneCells: run.doneCells,
-            errorCells: run.errorCells,
-            totalCells: run.totalCells,
-        });
+        await publishRunProgress(
+            { runId: run.id, status: run.status, doneCells: run.doneCells, errorCells: run.errorCells, totalCells: run.totalCells },
+            () => runTotals(p.runId)
+        );
         if (run.doneCells === run.totalCells) {
             await runFinalizeQueue.add(JOB_NAMES.RUN_FINALIZE.FINALIZE, { orgId: p.orgId, runId: p.runId }, { jobId: `finalize-${p.runId}` });
         }
