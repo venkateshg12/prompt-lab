@@ -6,10 +6,11 @@ import { createRunSchema, idSchema } from "@repo/types";
 import { cursorQuerySchema } from "@repo/types";
 import { OWNER_RUNS_REQUIRE_ADMIN } from "../constants/env";
 import { prisma } from "../db/prisma";
-import { assertWithinBudget, createRun, planRun } from "../runner/createRun";
+import { createRun, detectTestReuse, planRun } from "../runner/createRun";
 import { cancelRun, getRun, listRuns, toRunDto } from "../services/run.service";
 import { assertRescorable, getRunSummary, listResults } from "../services/results.service";
 import { datasetHashOf } from "../runner/dataset";
+import { runTotals } from "../runner/totals";
 import { maintenanceQueue } from "../jobs/queues/maintenance.queue";
 import { JOB_NAMES } from "../constants/queue";
 import { tagSchema } from "@repo/types";
@@ -36,24 +37,43 @@ export const createRunHandler = catchError(async (req, res) => {
     res.status(CREATED).json(ok(toRunDto(run)));
 });
 
-// Server-side estimate: the same validation and pricing createRun uses, with no writes.
+// Server-side estimate: the same validation as createRun, no writes. A typical call, not the worst case:
+// output tokens ≈ maxTokens × 0.4 (× 0.8 for chain-of-thought, whose reasoning is long). The UI labels it
+// an estimate and prints the date of every price; the real cost comes from the stored results.
 export const estimateRunHandler = catchError(async (req, res) => {
-    const body = createRunSchema.parse(req.body);
+    const body = createRunSchema.parse({ ...req.body, confirmFinal: true }); // intent is checked by Start, not by the estimate
     const plan = await planRun(req.orgId, body);
-    let withinBudget = true;
-    try {
-        assertWithinBudget(plan);
-    } catch {
-        withinBudget = false;
-    }
+    const perExample = plan.examples.length * body.repeats;
+    const avgInputChars = Math.ceil(plan.examples.reduce((n, e) => n + e.input.length, 0) / plan.examples.length);
+    const variants = plan.prompts.flatMap((p) => {
+        const snap = plan.snapshots[p.id]!;
+        const fixedChars = snap.system.length + snap.userTemplate.length + snap.priorTurns.reduce((n, t) => n + t.content.length, 0);
+        return plan.models.map((m) => {
+            const skipped = p.technique === "structured" && m.structured === "unsupported" && m.provider !== "fake";
+            const cells = skipped ? 0 : perExample;
+            const tokensIn = Math.ceil((fixedChars + avgInputChars) / 4);
+            const tokensOut = Math.ceil(snap.maxTokens * (p.technique === "cot" ? 0.8 : 0.4));
+            const perCell = Math.round((tokensIn * m.inputUsdMicrosPerMTok + tokensOut * m.outputUsdMicrosPerMTok) / 1_000_000);
+            return {
+                promptVersion: `${p.key}@${p.version}`, modelKey: m.key, cells, skippedCells: skipped ? perExample : 0,
+                estimateUsdMicros: perCell * cells, priceCheckedOn: m.priceCheckedOn.toISOString().slice(0, 10),
+            };
+        });
+    });
+    const totalUsdMicros = variants.reduce((s, v) => s + v.estimateUsdMicros, 0);
+    const remaining = plan.budgetUsdMicros - plan.spentThisMonthUsdMicros;
     res.status(OK).json(
         ok({
             totalCells: plan.totalCells,
+            cells: variants.reduce((s, v) => s + v.cells, 0),
+            skippedCells: variants.reduce((s, v) => s + v.skippedCells, 0),
             examples: plan.examples.length,
-            estimatedCostUsdMicros: Number(plan.estimatedCostUsdMicros),
-            spentThisMonthUsdMicros: Number(plan.spentThisMonthUsdMicros),
-            budgetUsdMicros: Number(plan.budgetUsdMicros),
-            withinBudget,
+            variants,
+            totalUsdMicros,
+            estimatedCostUsdMicros: Number(plan.estimatedCostUsdMicros), // the upper bound the budget gate uses
+            budget: { limit: Number(plan.budgetUsdMicros), spent: Number(plan.spentThisMonthUsdMicros), remaining: Number(remaining) },
+            withinBudget: plan.spentThisMonthUsdMicros + plan.estimatedCostUsdMicros <= plan.budgetUsdMicros,
+            testReused: await detectTestReuse(plan.task.id, body.split, plan.datasetHash),
             datasetHash: plan.datasetHash,
         })
     );
@@ -115,13 +135,13 @@ export const runEventsHandler = catchError(async (req, res) => {
         unlisteners.forEach((fn) => fn());
         void releaseStreamSlot(req.userId);
     });
-    const snapshot = (r: { status: string; doneCells: number; errorCells: number; totalCells: number }) => ({
-        runId: id, status: r.status, doneCells: r.doneCells, errorCells: r.errorCells, totalCells: r.totalCells, at: new Date().toISOString(),
+    const snapshot = (r: { status: string; doneCells: number; errorCells: number; totalCells: number }, t: { costUsdMicros: number; skippedCells: number }) => ({
+        runId: id, status: r.status, doneCells: r.doneCells, errorCells: r.errorCells, totalCells: r.totalCells, ...t, at: new Date().toISOString(),
     });
-    stream.send("progress", snapshot(run));
+    stream.send("progress", snapshot(run, await runTotals(id)));
     unlisteners.push(listen(id, (m) => stream.send("progress", m)));
     // Close the race between "read the run" and "subscribed": re-read once now that we're listening.
     const fresh = await prisma.run.findUnique({ where: { id } });
-    if (fresh) stream.send("progress", snapshot(fresh));
+    if (fresh) stream.send("progress", snapshot(fresh, await runTotals(id)));
 });
 

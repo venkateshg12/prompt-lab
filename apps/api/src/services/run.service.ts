@@ -8,6 +8,7 @@ import { recordAudit, type AuditActor } from "./audit.service";
 import { runFinalizeQueue } from "../jobs/queues/runFinalize.queue";
 import { JOB_NAMES } from "../constants/queue";
 import type { Run } from "../generated/prisma/client";
+import { runTotals } from "../runner/totals";
 
 /** A run as the API returns it. The (large) prompt snapshots are fetched separately. */
 export const toRunDto = (r: Run) => ({
@@ -36,10 +37,26 @@ export const listRuns = async (query: { taskId?: string; cursor?: string; limit:
         where: { ...(query.taskId ? { taskId: query.taskId } : {}), ...afterCursor(decodeCursor(query.cursor)) },
         orderBy: cursorOrder,
         take: query.limit + 1,
-        include: { task: { select: { name: true, slug: true } } },
+        include: { task: { select: { name: true, slug: true } }, variants: { select: { promptVersionId: true, modelId: true } } },
     });
     const { items, meta } = pageOf(rows, query.limit);
-    return { items: items.map((r) => ({ ...toRunDto(r), task: r.task })), meta };
+    // Cost so far for the whole page in ONE aggregate (counted from stored results, like the run page).
+    const costs = await prisma.result.groupBy({ by: ["runId"], where: { runId: { in: items.map((r) => r.id) } }, _sum: { costUsdMicros: true } });
+    return {
+        items: items.map((r) => {
+            const prompts = new Set(r.variants.map((v) => v.promptVersionId)).size;
+            const models = new Set(r.variants.map((v) => v.modelId)).size;
+            // totalCells = prompts × models × examples × repeats, so the example count is exact.
+            const examples = prompts && models ? Math.round(r.totalCells / (prompts * models * r.repeats)) : 0;
+            return {
+                ...toRunDto(r),
+                task: r.task,
+                grid: { prompts, models, examples, repeats: r.repeats },
+                costUsdMicros: costs.find((c) => c.runId === r.id)?._sum.costUsdMicros ?? 0,
+            };
+        }),
+        meta,
+    };
 };
 
 export const getRun = async (id: string) => {
@@ -51,10 +68,13 @@ export const getRun = async (id: string) => {
         },
     });
     appAssert(run, NOT_FOUND, "Run not found");
-    const counts = await prisma.result.groupBy({ by: ["variantId", "status"], where: { runId: id }, _count: { _all: true } });
+    const counts = await prisma.result.groupBy({ by: ["variantId", "status"], where: { runId: id }, _count: { _all: true }, _sum: { costUsdMicros: true } });
+    const costOf = (variantId: string) => counts.filter((c) => c.variantId === variantId).reduce((n, c) => n + (c._sum.costUsdMicros ?? 0), 0);
     const countOf = (variantId: string, status: string) => counts.find((c) => c.variantId === variantId && c.status === status)?._count._all ?? 0;
+    const totals = await runTotals(id);
     return {
         ...toRunDto(run),
+        ...totals,
         task: run.task,
         variants: run.variants.map((v) => ({
             id: v.id,
@@ -70,8 +90,10 @@ export const getRun = async (id: string) => {
         })),
         // Per model: how far each model has got (the launcher shows one bar per model).
         progressByModel: Object.values(
-            run.variants.reduce<Record<string, { modelKey: string; done: number; errors: number }>>((acc, v) => {
-                const e = (acc[v.model.key] ??= { modelKey: v.model.key, done: 0, errors: 0 });
+            run.variants.reduce<Record<string, { modelKey: string; modelLabel: string; total: number; done: number; errors: number; costUsdMicros: number }>>((acc, v) => {
+                const e = (acc[v.model.key] ??= { modelKey: v.model.key, modelLabel: v.model.label, total: 0, done: 0, errors: 0, costUsdMicros: 0 });
+                e.total += run.totalCells / run.variants.length;
+                e.costUsdMicros += costOf(v.id);
                 e.done += countOf(v.id, "scored") + countOf(v.id, "error") + countOf(v.id, "skipped");
                 e.errors += countOf(v.id, "error");
                 return acc;
