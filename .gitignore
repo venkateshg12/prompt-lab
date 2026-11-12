@@ -72,15 +72,23 @@ storybook-static/
 /.agents/
 /.skills/
 /.claude/
-/CLAUDE.md
+/tasks/
+/task/
 
 # Design references (local only)
 /design-preferences/
 /inspiration/
 
 # Prompt Lab additions
-# CLAUDE.md is tracked in this project
+# Markdown files: ignore all .md files except root README/CLAUDE, docs/reference, and case prompts
+*.md
+!/README.md
 !/CLAUDE.md
+!docs/reference/*.md
+!docs/reference/**/*.md
+!cases/**/prompts/*.md
+!cases/**/prompts/**/*.md
+
 # Prisma client is generated on install (Phase 03)
 apps/api/src/generated/
 # CLI output (Phase 17); exported results you want to keep go under cases/<task>/runs/

@@ -12,6 +12,8 @@ export const createRunSchema = z.object({
     repeats: z.number().int().min(1).max(5).default(1),
     temperature: z.number().min(0).max(1).default(0),
     notes: z.string().max(2000).optional(),
+    // The test split is for FINAL numbers: starting a test run takes deliberate intent.
+    confirmFinal: z.boolean().default(false),
 });
 export type CreateRun = z.infer<typeof createRunSchema>;
 
@@ -63,6 +65,9 @@ export const runProgressSchema = z.object({
     doneCells: z.number().int(),
     errorCells: z.number().int(),
     totalCells: z.number().int(),
+    // Present on throttled live messages: counted from the database, never by adding up messages.
+    skippedCells: z.number().int().optional(),
+    costUsdMicros: z.number().int().optional(),
     at: z.string(),
 });
 export type RunProgress = z.infer<typeof runProgressSchema>;
