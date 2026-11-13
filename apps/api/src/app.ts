@@ -27,6 +27,8 @@ import { publicInviteRouter } from "./routes/invite.route";
 import { modelRouter } from "./routes/model.route";
 import { adminRouter } from "./routes/admin.route";
 import { gmailRoutes } from "./routes/gmail.route";
+import { publicRouter } from "./routes/public.route";
+import { demoRouter } from "./routes/demo.route";
 import { setupBullBoard } from "./jobs/dashboard/bull-board";
 
 /**
@@ -97,8 +99,8 @@ export const createApp = () => {
             origin: corsOrigin,
             credentials: true,
             // X-Lab-Visitor: the web app's per-browser visitor id (demo fairness key, Phase 06/23).
-            // X-Org-Id: the web client's selected workspace (Phase 10). Phase 23 adds X-Provider-Key.
-            allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Lab-Visitor", "X-Org-Id"],
+            // X-Org-Id: the web client's selected workspace (Phase 10). X-Provider-Key: the demo visitor's own key (Phase 23).
+            allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Lab-Visitor", "X-Org-Id", "X-Provider-Key"],
         })
     );
 
@@ -107,6 +109,7 @@ export const createApp = () => {
     // The test-set import takes files up to 3 MB; its parser is mounted FIRST, because the global one
     // would answer 413 before the route ever ran.
     app.use("/orgs/:orgId/tasks/:taskId/examples/import", express.json({ limit: "3mb" }));
+    app.use("/demo", express.json({ limit: "16kb" })); // Phase 23: a demo request is a few ids, never a document
     app.use(express.json({ limit: "256kb" }));
     app.use(cookieParser());
     app.use(visitorIdMiddleware);
@@ -160,6 +163,8 @@ export const createApp = () => {
     app.use("/invites", publicInviteRouter);
     app.use("/models", modelRouter);
     app.use("/admin", adminRouter);
+    app.use("/public", publicRouter); // Phase 22: published runs, no authentication
+    app.use("/demo", demoRouter); // Phase 23: bring-your-own-key demo (its own 16 kB body limit)
 
     // The path is fixed by the redirect URI registered with Google (/api/auth/gmail/callback).
     app.use("/api/auth/gmail", gmailRoutes);

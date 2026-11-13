@@ -3,10 +3,7 @@ import { runAsSystem } from "../utils/requestContext";
 
 const CASE_ORG_NAME = "Case studies";
 
-export const flag = (args: string[], name: string): string | undefined => {
-    const index = args.indexOf(name);
-    return index !== -1 ? args[index + 1] : undefined; // check -1 first: args[indexOf + 1] reads args[0] when absent
-};
+export { flag } from "./args";
 
 /*
   Which workspace a CLI script acts in: --org <id>, or --email <user> (that user's first owned workspace),

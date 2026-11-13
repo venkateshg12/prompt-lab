@@ -44,9 +44,10 @@ export const parsePromptFile = (text: string, filename: string): PromptFile => {
             sections[current] += line + "\n";
         }
     }
+    // "## system" must be present but may be empty (v0-vague has no system prompt); "## user" may not.
     const system = sections.system?.trim();
     const template = sections.user?.trim();
-    if (!system || !template) throw new Error(`${filename}: needs both "## system" and "## user" sections`);
+    if (system === undefined || !template) throw new Error(`${filename}: needs both "## system" and "## user" sections`);
 
     const fewShot = Array.isArray(meta.fewShot) ? meta.fewShot.map(String) : [];
     return {

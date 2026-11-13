@@ -5,7 +5,8 @@ import path from "node:path";
 import { createRunSchema, fieldRulesSchema } from "@repo/types";
 import { aggregateVariant, summaryMarkdown, type ResultLite } from "@repo/scoring";
 import { prisma } from "../db/prisma";
-import { runWithRequestContext } from "../utils/requestContext";
+import { runAsSystem, runWithRequestContext } from "../utils/requestContext";
+import { runMarkdown } from "../services/export.service";
 import { complete } from "../ai/complete";
 import { replayProvider } from "../ai/providers/replay";
 import { createRun, planRun } from "../runner/createRun";
@@ -36,13 +37,36 @@ const pool = async <T>(items: T[], concurrency: number, fn: (item: T) => Promise
     );
 };
 
+/*
+  pnpm --filter api bench -- --run <runId> --markdown [--org <id> | --email <you>]
+  prints the README table of a STORED run: the same string as the web's "Copy Markdown".
+ */
+const printStoredMarkdown = async (args: string[], runId: string) => {
+    const orgId = flag(args, "--org") ?? (flag(args, "--email") ? await resolveOrgId({ email: flag(args, "--email") }) : await runAsSystem(async () => {
+        const run = await prisma.run.findUnique({ where: { id: runId }, select: { orgId: true } });
+        if (!run) throw new Error(`No run ${runId}`);
+        return run.orgId;
+    }));
+    await runWithRequestContext({ orgId, requestId: `cli-${randomUUID()}` }, async () => {
+        process.stdout.write(await runMarkdown(orgId, runId));
+    });
+};
+
 const main = async () => {
     const args = process.argv.slice(2);
+    const storedRun = flag(args, "--run");
+    if (storedRun) {
+        if (!args.includes("--markdown")) throw new Error("Usage: bench --run <runId> --markdown");
+        // stdout carries ONLY the table (so `> table.md` is exact); other lines, such as the copied Redis
+        // connection's "Connected…" log, go to stderr.
+        console.log = (...a: unknown[]) => console.error(...a);
+        return printStoredMarkdown(args, storedRun);
+    }
     const taskSlug = flag(args, "--task");
     const promptRefs = (flag(args, "--prompts") ?? "").split(",").filter(Boolean);
     const modelKeys = (flag(args, "--models") ?? "").split(",").filter(Boolean);
     if (!taskSlug || promptRefs.length === 0 || modelKeys.length === 0) {
-        throw new Error("Usage: bench --task <slug> --prompts key@version,… --models <key>,… [--split dev|test] [--repeats n] [--concurrency n] [--replay] [--save] [--out file]");
+        throw new Error("Usage: bench --task <slug> --prompts key@version,… --models <key>,… [--split dev|test] [--repeats n] [--concurrency n] [--replay] [--save] [--final (required for --split test)] [--out file] [--md table.md] [--max-cells n]");
     }
     const split = (flag(args, "--split") ?? "dev") as "dev" | "test";
     const repeats = Number(flag(args, "--repeats") ?? 1);
@@ -50,6 +74,8 @@ const main = async () => {
     const replay = args.includes("--replay");
     const save = args.includes("--save");
     const out = flag(args, "--out");
+    const mdOut = flag(args, "--md"); // also write the results table (Markdown) to this file
+    const maxCells = flag(args, "--max-cells") ? Number(flag(args, "--max-cells")) : undefined; // bench.yml's spend cap
     const orgId = await resolveOrgId({ orgId: flag(args, "--org"), email: flag(args, "--email") });
 
     await runWithRequestContext({ orgId, requestId: `cli-${randomUUID()}` }, async () => {
@@ -63,7 +89,7 @@ const main = async () => {
                 return p;
             })
         );
-        const body = createRunSchema.parse({ taskId: task.id, promptVersionIds: prompts.map((p) => p.id), modelKeys, split, repeats });
+        const body = createRunSchema.parse({ taskId: task.id, promptVersionIds: prompts.map((p) => p.id), modelKeys, split, repeats, confirmFinal: args.includes("--final") });
 
         // --replay answers from recorded files, so no provider key is needed; --save writes a real Run.
         const requireEnabled = !replay;
@@ -78,6 +104,9 @@ const main = async () => {
             Array.from({ length: repeats }, (_, repeat) => prompts.flatMap((prompt) => plan.models.map((model) => ({ prompt, model, example, repeat })))).flat()
         );
 
+        if (maxCells !== undefined && cells.length > maxCells) {
+            throw new Error(`Refusing: ${cells.length} cells is more than --max-cells ${maxCells}`);
+        }
         const lines: ReturnType<typeof toResultLine>[] = [];
         const variantRows = new Map<string, { prompt: string; model: string; rows: ResultLite[] }>();
         await pool(cells, concurrency, async ({ prompt, model, example, repeat }) => {
@@ -126,7 +155,13 @@ const main = async () => {
         });
 
         // The results table, from the same aggregate the API uses (so the terminal and the README can't disagree).
-        console.log(summaryMarkdown([...variantRows.values()].map((v) => ({ prompt: v.prompt, model: v.model, summary: aggregateVariant(v.rows, fields) }))));
+        const table = summaryMarkdown([...variantRows.values()].map((v) => ({ prompt: v.prompt, model: v.model, summary: aggregateVariant(v.rows, fields) })));
+        console.log(table);
+        if (mdOut) {
+            await mkdir(path.dirname(path.resolve(mdOut)), { recursive: true });
+            await writeFile(mdOut, table + "\n");
+            console.log(`wrote the table to ${mdOut}`);
+        }
         const priceDates = plan.models.map((m) => `${m.key}: ${m.priceCheckedOn.toISOString().slice(0, 10)}`).join(", ");
         console.log(`\nPrices checked on: ${priceDates}${saved?.testReused ? " | testReused: this test set was already used by an earlier run" : ""}`);
         console.log(`${saved ? "saved run" : "run"} ${runId}: ${cells.length} cells${saved?.testReused ? " (testReused)" : ""}`);
