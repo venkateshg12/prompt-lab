@@ -1,0 +1,10 @@
+{
+  "slug": "reasoning-mini",
+  "name": "Small reasoning questions (jobs and courses)",
+  "description": "Questions whose answer needs a few steps: stipend totals, eligibility, scheduling. For the Playbook's chain-of-thought lesson.",
+  "instructions": "Answer the question. Use null for the field that does not apply.",
+  "fields": [
+    { "kind": "integer", "key": "answer_number", "description": "The numeric answer, or null if the question asks for a choice.", "min": 0, "max": 10000000 },
+    { "kind": "enum", "key": "answer_choice", "description": "yes / no / a / b / c / none, or null if the question asks for a number.", "values": ["yes", "no", "a", "b", "c", "none"] }
+  ]
+}
