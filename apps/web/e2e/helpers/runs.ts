@@ -17,7 +17,9 @@ export const answer = (n: number, over: Record<string, unknown> = {}) => ({
 export const posting = (n: number, opts: { mode?: string; give?: Record<string, unknown> } = {}) =>
   `Posting ${n}: we are hiring.\n<<ANS ${JSON.stringify(answer(n, opts.give))} >>${opts.mode ? `\n<<MODE ${opts.mode} >>` : ""}`;
 
-export const stubStats = async (): Promise<{ calls: number }> => (await fetch(`${NIM}/__stats`)).json() as Promise<{ calls: number }>;
+export const stubStats = async (): Promise<{ calls: number; byKey: { server: number; visitor: number; other: number } }> =>
+  (await fetch(`${NIM}/__stats`)).json() as Promise<{ calls: number; byKey: { server: number; visitor: number; other: number } }>;
+export const VISITOR_KEY = "nvapi-e2e-visitor-key-0123456789abcdef";
 export const stubReset = () => fetch(`${NIM}/__reset`, { method: "POST" });
 
 export interface Setup {

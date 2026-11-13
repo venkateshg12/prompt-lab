@@ -25,3 +25,17 @@ export async function sql(text: string, params: unknown[] = []): Promise<Record<
     await client.end();
   }
 }
+
+/** EXPLAIN a query with sequential scans disabled (tiny E2E tables would otherwise always seq-scan): proves an index CAN serve it. */
+export async function explainIndexed(text: string): Promise<string> {
+  const apiRequire = createRequire(path.resolve(__dirname, "../../../api/package.json"));
+  const { Client } = apiRequire("pg") as { Client: PgClientCtor };
+  const client = new Client({ connectionString: E2E_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("SET enable_seqscan = off");
+    return (await client.query(`EXPLAIN ${text}`)).rows.map((r) => r["QUERY PLAN"]).join("\n");
+  } finally {
+    await client.end();
+  }
+}

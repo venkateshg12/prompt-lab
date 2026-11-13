@@ -11,11 +11,20 @@
 //   <<MODE 503>>     answers HTTP 503 every time                   -> retried, then an `error` cell
 //   <<MODE flaky2>>  answers HTTP 429 twice, then succeeds         -> attempts: 3
 //   <<MODE slow>>    waits 400 ms before answering                 -> lets a test cancel mid-run
-// GET /__stats -> { calls } ; POST /__reset zeroes it. Auth: `Bearer e2e-key`, else 403 (like NIM).
+//   <<MODE alt>>     every 2nd call for the same prompt answers remote "hybrid" -> an inconsistent field across repeats
+//   <<PATCH {json} >> (e.g. in a prompt TEMPLATE) is merged into the answer   -> two prompts that answer differently
+//   <<MODE 410>>     answers HTTP 410 (a retired model)            -> ModelRetired
+//   <<MODE 429>>     answers HTTP 429 every time                   -> retried, then rate-limited
+//   <<JUDGE fail|garbage>> when the request is a JUDGE call (system prompt "You are grading…"): the verdict to
+//                    give for that posting (default pass); garbage is not JSON        -> judge_error
+// GET /__stats -> { calls, byKey: { server, visitor, other } } ; POST /__reset zeroes it.
+// Auth: `Bearer e2e-key` (the server's key) or the one demo visitor key below, else 403 (like NIM).
 const http = require("node:http");
 
 const PORT = Number(process.env.NIM_STUB_PORT || 5997);
 let calls = 0;
+const VISITOR_KEY = "nvapi-e2e-visitor-key-0123456789abcdef";
+let byKey = { server: 0, visitor: 0, other: 0 };
 const seen = new Map(); // `${model}|${posting}` -> times seen (for flaky2)
 
 const send = (res, status, body) => {
@@ -26,9 +35,10 @@ const send = (res, status, body) => {
 http
   .createServer((req, res) => {
     if (req.url === "/__health") return send(res, 200, { ok: true });
-    if (req.url === "/__stats") return send(res, 200, { calls });
+    if (req.url === "/__stats") return send(res, 200, { calls, byKey });
     if (req.url === "/__reset" && req.method === "POST") {
       calls = 0;
+      byKey = { server: 0, visitor: 0, other: 0 };
       seen.clear();
       return send(res, 200, { ok: true });
     }
@@ -39,13 +49,22 @@ http
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       calls++;
-      if (req.headers.authorization !== "Bearer e2e-key") return send(res, 403, { error: "forbidden" });
+      const auth = req.headers.authorization;
+      byKey[auth === "Bearer e2e-key" ? "server" : auth === `Bearer ${VISITOR_KEY}` ? "visitor" : "other"]++;
+      if (auth !== "Bearer e2e-key" && auth !== `Bearer ${VISITOR_KEY}`) return send(res, 403, { error: "forbidden", echo: auth });
       const body = JSON.parse(raw || "{}");
       const last = (body.messages || []).filter((m) => m.role === "user").pop();
       const text = last ? String(last.content) : "";
       const ans = /<<ANS\s*([\s\S]*?)\s*>>/.exec(text);
       const mode = (/<<MODE\s+(\w+)\s*>>/.exec(text) || [])[1];
-      const json = ans ? ans[1] : "{}";
+      const patch = /<<PATCH\s*([\s\S]*?)\s*>>/.exec(text);
+      const key0 = `${body.model}|${text}`;
+      const n0 = (seen.get(key0) || 0) + 1;
+      let json = ans ? ans[1] : "{}";
+      if (patch || (mode === "alt" && n0 % 2 === 0)) {
+        const obj = { ...JSON.parse(json), ...(patch ? JSON.parse(patch[1]) : {}), ...(mode === "alt" && n0 % 2 === 0 ? { remote: "hybrid" } : {}) };
+        json = JSON.stringify(obj);
+      }
       const key = `${body.model}|${text}`;
       const n = (seen.get(key) || 0) + 1;
       seen.set(key, n);
@@ -57,8 +76,16 @@ http
         });
 
       if (mode === "400") return send(res, 400, { error: "bad request" });
+      if (mode === "410") return send(res, 410, { error: "gone" });
+      if (mode === "429") return send(res, 429, { error: "slow down" });
       if (mode === "503") return send(res, 503, { error: "unavailable" });
       if (mode === "flaky2" && n <= 2) return send(res, 429, { error: "slow down" });
+      const system = ((body.messages || []).find((m) => m.role === "system") || {}).content || "";
+      if (String(system).startsWith("You are grading")) {
+        const verdict = (/<<JUDGE\s+(\w+)\s*>>/.exec(text) || [])[1] || "pass";
+        if (verdict === "garbage") return reply("I think it is probably fine?");
+        return reply(JSON.stringify({ pass: verdict === "pass", reason: verdict === "pass" ? "Same role." : "A different role." }));
+      }
       const respond = () => {
         if (mode === "prose") return reply(`Sure! Here is the extraction: ${json}`);
         if (mode === "fence") return reply("```json\n" + json + "\n```");

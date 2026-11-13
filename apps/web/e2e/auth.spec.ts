@@ -90,9 +90,9 @@ test.describe("Phase 09 — web foundation: auth flows", () => {
     // Two devices now: revoke the one that isn't this device.
     const rows = page.locator("ul > li");
     await expect(rows).toHaveCount(2);
+    // Revoking takes one click (no confirmation dialog). A speculative "confirm" click used to race the
+    // request and could hit this device's own header "Sign out", leaving 0 rows (flake seen 13 Nov 2026).
     await rows.filter({ hasNot: page.getByText("This device") }).getByRole("button", { name: /Sign out/i }).click();
-    const confirm = page.getByRole("button", { name: /^(Sign out|Confirm|Yes|Continue)/i }).last();
-    if (await confirm.isVisible().catch(() => false)) await confirm.click();
     await expect(rows).toHaveCount(1);
 
     // The other device's access token is still cryptographically valid, but its session row is gone.

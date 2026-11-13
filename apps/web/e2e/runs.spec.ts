@@ -136,6 +136,9 @@ test.describe("Phase 17 — the runner (real queue, worker, scorer, DB and SSE; 
     const zero = await createPrompt(req, s.T, "v1-zero-shot", "Posting:\n{{input}}");
     const structured = await createPrompt(req, s.T, "v4-structured", "Posting:\n{{input}}", "structured");
     const runBody = (over: object = {}) => ({ taskId: s.taskId, promptVersionIds: [zero], modelKeys: [MODEL_A], split: "dev", ...over });
+    // The test split needs deliberate intent: without confirmFinal it is refused.
+    const noIntent = await req.post(`${API}/orgs/${s.orgId}/runs`, { data: runBody({ split: "test" }) });
+    expect(noIntent.status()).toBe(400);
     const post = (data: object) => req.post(`${API}/orgs/${s.orgId}/runs`, { data });
 
     // A structured prompt needs a probed model: untested is refused before anything is created.
@@ -144,7 +147,7 @@ test.describe("Phase 17 — the runner (real queue, worker, scorer, DB and SSE; 
     expect(((await unprobed.json()) as { errors: { code: string }[] }).errors[0]!.code).toBe("MODEL_UNPROBED");
     // Unknown / unusable inputs are rejected up front.
     expect((await post(runBody({ modelKeys: ["nvidia:nope/missing"] }))).status()).toBe(404);
-    expect((await post(runBody({ split: "test", promptVersionIds: [zero], taskId: "00000000-0000-7000-8000-000000000000" }))).status()).toBe(404);
+    expect((await post(runBody({ split: "test", confirmFinal: true, promptVersionIds: [zero], taskId: "00000000-0000-7000-8000-000000000000" }))).status()).toBe(404);
 
     // Budget: a zero budget refuses the run with 402 and creates nothing.
     expect((await req.patch(`${API}/orgs/${s.orgId}`, { data: { monthlyBudgetUsd: 0 } })).status()).toBe(200);
@@ -155,10 +158,10 @@ test.describe("Phase 17 — the runner (real queue, worker, scorer, DB and SSE; 
     expect((await req.patch(`${API}/orgs/${s.orgId}`, { data: { monthlyBudgetUsd: 20 } })).status()).toBe(200);
 
     // Test once: the second test run on the same dataset is flagged testReused.
-    const first = ((await (await post(runBody({ split: "test" }))).json()) as { data: { id: string; testReused: boolean } }).data;
+    const first = ((await (await post(runBody({ split: "test", confirmFinal: true }))).json()) as { data: { id: string; testReused: boolean } }).data;
     expect(first.testReused).toBe(false);
     await waitForRun(req, s.orgId, first.id, (r) => r.status === "completed");
-    const second = ((await (await post(runBody({ split: "test" }))).json()) as { data: { id: string; testReused: boolean } }).data;
+    const second = ((await (await post(runBody({ split: "test", confirmFinal: true }))).json()) as { data: { id: string; testReused: boolean } }).data;
     expect(second.testReused).toBe(true);
     await waitForRun(req, s.orgId, second.id, (r) => r.status === "completed");
 
