@@ -97,3 +97,23 @@ describe("busy waits are not health failures", () => {
         expect(breakerFor("fake:text").getState()).toBe(CircuitState.CLOSED);
     });
 });
+
+describe("a caller-supplied key's rate limit is not the provider's health (Phase 23)", () => {
+    it("429s on a visitor key never open the breaker the owner's runs use", async () => {
+        for (let i = 0; i < 6; i++) {
+            for (let a = 0; a < 3; a++) fakeLlm.push({ kind: "error", error: new ProviderHttpError("fake:text", 429, "slow down") });
+            const err = await complete(model, price, req, { apiKey: "visitor-key" }).catch((e) => e);
+            expect(err).toBeInstanceOf(ProviderHttpError);
+            expect((err as ProviderHttpError).status).toBe(429);
+        }
+        expect(breakerFor("fake:text").getState()).toBe(CircuitState.CLOSED);
+    });
+
+    it("429s on the server's own key still count", async () => {
+        for (let i = 0; i < 5; i++) {
+            for (let a = 0; a < 3; a++) fakeLlm.push({ kind: "error", error: new ProviderHttpError("fake:text", 429, "slow down") });
+            await complete(model, price, req).catch(() => undefined);
+        }
+        expect(breakerFor("fake:text").getState()).toBe(CircuitState.OPEN);
+    });
+});

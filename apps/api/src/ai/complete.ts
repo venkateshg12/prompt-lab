@@ -5,7 +5,7 @@ import { LLM_PROVIDER, NVIDIA_BASE_URL } from "../constants/env";
 import { breakerFor } from "./breakers";
 import { assertRpmBudget, withLease } from "./concurrency";
 import { withRetry } from "./reliability";
-import { ModelRetired, ProviderBusy, ProviderNotConfigured, ProviderSkipped, isClientError } from "./errors";
+import { ModelRetired, ProviderBusy, ProviderHttpError, ProviderNotConfigured, ProviderSkipped, isClientError } from "./errors";
 import { createOpenAiCompatible } from "./providers/openaiCompatible";
 import { anthropicProvider } from "./providers/anthropic";
 import { geminiProvider } from "./providers/gemini";
@@ -44,6 +44,9 @@ export const complete = async (
     opts: { apiKey?: string; signal?: AbortSignal; adapter?: Provider } = {}
 ): Promise<CallOutcome> => {
     const apiKey = opts.apiKey ?? serverKey(model.provider);
+    // A caller-supplied key (the Phase 23 demo's visitor key) has its own rate limit: a 429 on it says
+    // nothing about the provider, so it must not open the breaker the owner's runs depend on.
+    const callerKey = opts.apiKey !== undefined;
     if (!apiKey) throw new ProviderNotConfigured(model.key);
     const adapter = opts.adapter ?? (LLM_PROVIDER === "replay" ? replayProvider : adapters[model.provider]);
     let attempts = 0;
@@ -76,7 +79,9 @@ export const complete = async (
                 // A wrong key or a retired id says nothing about the provider's health, and neither does
                 // waiting for a free concurrency lease: return it as a value so the breaker records a
                 // success, and rethrow it below. (PaperTrail counts ProviderBusy; a benchmark must not.)
-                if (isClientError(error) || error instanceof ProviderBusy) return { ok: false as const, error };
+                if (isClientError(error) || error instanceof ProviderBusy || (callerKey && error instanceof ProviderHttpError && error.status === 429)) {
+                    return { ok: false as const, error };
+                }
                 throw error; // counts against the breaker
             }
         },
