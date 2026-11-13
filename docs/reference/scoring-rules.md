@@ -36,6 +36,7 @@ time scores 0 on those outputs, and its valid-JSON % shows it.
 | --- | --- |
 | `boolean` | exact; `null` matches only `null` |
 | `integer` | as above (the `reasoning-mini` numeric answers use it), optional `tolerance` (absolute) defaulting to 0 |
+| `enum` with `nullable: true` | opt-in (default `false`): `null` matches only `null`, a value against `null` is `null_expected` / `null_predicted`. `reasoning-mini` labels the field that doesn't apply as `null` (added 13 Nov 2026, scorer version 2; no existing task uses it) |
 
 ### Reason codes
 
