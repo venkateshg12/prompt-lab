@@ -79,10 +79,10 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 ### Part C — The web app
 
 - [x] 19 — [Web: tasks, test sets, prompts](phase-19-web-setup-screens.md)
-- [ ] 20 — [Web: run launcher and live progress](phase-20-web-runs.md)
-- [ ] 21 — [Web: results table, error browser, side-by-side](phase-21-web-results.md)
-- [ ] 22 — [Export and published pages](phase-22-export-publish.md)
-- [ ] 23 — [Public demo: bring your own key](phase-23-byok-demo.md)
+- [x] 20 — [Web: run launcher and live progress](phase-20-web-runs.md)
+- [x] 21 — [Web: results table, error browser, side-by-side](phase-21-web-results.md)
+- [x] 22 — [Export and published pages](phase-22-export-publish.md)
+- [x] 23 — [Public demo: bring your own key](phase-23-byok-demo.md)
 
 ### Part D — The case study
 
@@ -93,7 +93,7 @@ NEW is listed in [../reference/copy-map.md](../reference/copy-map.md).
 
 ### Part E — Ship
 
-- [ ] 28 — [Tests: Vitest, Supertest, Testcontainers, Playwright](phase-28-tests.md)
+- [x] 28 — [Tests: Vitest, Supertest, Testcontainers, Playwright](phase-28-tests.md)
 - [ ] 29 — [Docker, CI, deploy](phase-29-docker-ci-deploy.md)
 - [ ] 30 — [README, ADRs, demo GIF, LinkedIn post, resume](phase-30-ship.md)
 
