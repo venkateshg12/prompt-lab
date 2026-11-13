@@ -63,6 +63,7 @@ export const scoreField = (
             return done(rule.key, a === b ? 1 : 0, a === b ? "match" : "mismatch", { ...base, normExpected: b, normPredicted: a });
         }
         case "enum": {
+            if (rule.nullable && (exp === null || pred === null)) return nullCase(rule.key, exp, pred, base);
             return done(rule.key, pred === exp ? 1 : 0, pred === exp ? "match" : "mismatch", base);
         }
         case "boolean": {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { createTaskSchema, type Money, type Period } from "@repo/types";
+import { createTaskSchema, fieldRulesSchema, type Money, type Period } from "@repo/types";
 import { extractCandidate, parseObject } from "../extract";
 import { normalizeSkill, normalizeText } from "../normalize";
 import { normalizeCurrency, scoreMoney, yearly } from "../money";
@@ -229,5 +229,20 @@ describe("canonicalAnswer", () => {
     });
     it("passes other kinds through (enum, integer)", () => {
         expect(canonicalAnswer(task.fields, { ...expected, remote: "onsite" })).not.toBe(canonicalAnswer(task.fields, expected));
+    });
+});
+
+describe("nullable enum (Phase 25, reasoning-mini)", () => {
+    const rule = fieldRulesSchema.parse([{ kind: "enum", key: "answer_choice", description: "", values: ["yes", "no"], nullable: true }])[0]!;
+    const strict = fieldRulesSchema.parse([{ kind: "enum", key: "answer_choice", description: "", values: ["yes", "no"] }])[0]!;
+    it("null matches only null; a value against null is a null_* reason", () => {
+        expect(scoreField(rule, { answer_choice: null }, { answer_choice: null })[0]).toMatchObject({ score: 1, reason: "match" });
+        expect(scoreField(rule, { answer_choice: "yes" }, { answer_choice: null })[0]).toMatchObject({ score: 0, reason: "null_expected" });
+        expect(scoreField(rule, { answer_choice: null }, { answer_choice: "no" })[0]).toMatchObject({ score: 0, reason: "null_predicted" });
+        expect(scoreField(rule, { answer_choice: "no" }, { answer_choice: "no" })[0]).toMatchObject({ score: 1, reason: "match" });
+    });
+    it("is opt-in: without nullable, null is still the wrong type (job-postings unchanged)", () => {
+        expect(strict.kind === "enum" && strict.nullable).toBe(false);
+        expect(scoreField(strict, { answer_choice: null }, { answer_choice: "no" })[0]).toMatchObject({ score: 0, reason: "wrong_type" });
     });
 });
