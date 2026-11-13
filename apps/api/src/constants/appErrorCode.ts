@@ -16,5 +16,10 @@ export enum appErrorCode {
     RunNotCancellable = "RUN_NOT_CANCELLABLE",
     TestReused = "TEST_REUSED",
     BudgetExceeded = "BUDGET_EXCEEDED",
-    // Phase 23 appends: DemoKeyMissing, DemoKeyInvalid, DemoDailyCap
+    // Phase 23: the bring-your-own-key demo
+    DemoKeyMissing = "DEMO_KEY_MISSING",
+    DemoKeyInvalid = "DEMO_KEY_INVALID",
+    DemoDailyCap = "DEMO_DAILY_CAP",
+    // Phase 26
+    JudgeSameFamily = "JUDGE_SAME_FAMILY",
 }

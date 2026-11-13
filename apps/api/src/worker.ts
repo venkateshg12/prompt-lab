@@ -5,6 +5,7 @@ import { emailWorker } from "./jobs/workers/email.worker";
 import { maintenanceWorker } from "./jobs/workers/maintenance.worker";
 import { runCellWorker } from "./jobs/workers/runCell.worker";
 import { runFinalizeWorker } from "./jobs/workers/runFinalize.worker";
+import { runJudgeWorker } from "./jobs/workers/runJudge.worker";
 import { closePubSub } from "./utils/events/pubsub";
 import { maintenanceQueue } from "./jobs/queues/maintenance.queue";
 import { JOB_NAMES } from "./constants/queue";
@@ -34,7 +35,7 @@ export const initSchedulers = async () => {
 
 /** Stops queue workers from taking new jobs and waits for the ones in flight. */
 export const closeWorkers = async () => {
-  await Promise.all([emailWorker.close(), maintenanceWorker.close(), runCellWorker.close(), runFinalizeWorker.close()]);
+  await Promise.all([emailWorker.close(), maintenanceWorker.close(), runCellWorker.close(), runFinalizeWorker.close(), runJudgeWorker.close()]);
   await closePubSub();
   // Phase 29: await flushObservability();
 };
@@ -58,6 +59,7 @@ export function createHealthServer(port: number = Number(WORKER_PORT) || 8080): 
           maintenance: maintenanceWorker.isRunning(),
           runCell: runCellWorker.isRunning(),
           runFinalize: runFinalizeWorker.isRunning(),
+          runJudge: runJudgeWorker.isRunning(),
         };
         const healthy = dbOk && redisOk && Object.values(workersStatus).every(Boolean);
 

@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
     MAINTENANCE: 'maintenance-queue',
     RUN_CELL: 'run-cell-queue',
     RUN_FINALIZE: 'run-finalize-queue',
+    RUN_JUDGE: 'run-judge',
 } as const;
 
 export const JOB_NAMES = {
@@ -23,5 +24,8 @@ export const JOB_NAMES = {
     },
     RUN_FINALIZE: {
         FINALIZE: 'finalize',
+    },
+    RUN_JUDGE: {
+        JUDGE: 'judge-result',
     },
 } as const;

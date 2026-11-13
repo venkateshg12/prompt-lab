@@ -6,6 +6,7 @@ import { deadLetterQueue } from "../queues/deadLetter.queue";
 import { maintenanceQueue } from "../queues/maintenance.queue";
 import { runCellQueue } from "../queues/runCell.queue";
 import { runFinalizeQueue } from "../queues/runFinalize.queue";
+import { runJudgeQueue } from "../queues/runJudge.queue";
 
 export function setupBullBoard() {
   const serverAdapter = new ExpressAdapter();
@@ -18,6 +19,7 @@ export function setupBullBoard() {
       new BullMQAdapter(maintenanceQueue),
       new BullMQAdapter(runCellQueue),
       new BullMQAdapter(runFinalizeQueue),
+      new BullMQAdapter(runJudgeQueue),
     ],
     serverAdapter,
   });
