@@ -1,0 +1,67 @@
+name: bench
+
+# ADAPT of PaperTrail's eval.yml: MANUAL only. Replay (recorded answers, no key) by default; `live` needs
+# the `bench` environment (required reviewers) and refuses more than max_cells cells. Exports are artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      task: { description: "case folder", default: "job-postings", required: true }
+      split: { type: choice, options: [dev, test], default: dev }
+      prompts: { description: "comma-separated key@version", default: "v1-zero-shot@1" }
+      models: { description: "comma-separated model keys", default: "nvidia:openai/gpt-oss-20b" }
+      repeats: { description: "repeats per cell", default: "1" }
+      provider: { type: choice, options: [replay, live], default: replay }
+      max_cells: { description: "refuse a run bigger than this", default: "300" }
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.provider == 'live' && 'bench' || '' }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: pl, POSTGRES_PASSWORD: pl, POSTGRES_DB: pl }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U pl" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      NODE_ENV: development
+      PORT: "5000"
+      CORS_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://pl:pl@localhost:5432/pl
+      JWT_SECRET: bench-jwt-secret-not-used-0123456789-abcdefgh
+      JWT_REFRESH_SECRET: bench-jwt-refresh-secret-not-used-0123456789
+      GOOGLE_CLIENT_ID: bench
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      CACHE_REDIS_HOST: localhost
+      CACHE_REDIS_PORT: "6379"
+      REPLAY_DIR: ${{ github.workspace }}/cases/${{ inputs.task }}/replay
+      LLM_PROVIDER: ${{ inputs.provider == 'live' && 'live' || 'replay' }}
+      NVIDIA_API_KEY: ${{ inputs.provider == 'live' && secrets.NVIDIA_API_KEY || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 9.15.4 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter @repo/scoring build
+      - name: Database, models, a throwaway admin, the case folder
+        run: |
+          pnpm --filter api db:migrate
+          pnpm --filter api db:seed-models
+          pnpm --filter api promote-admin -- --email bench@ci.invalid --create
+          pnpm --filter api import-cases -- --case ${{ inputs.task }}
+      - name: Benchmark
+        run: >
+          pnpm --filter api bench -- --task ${{ inputs.task }} --split ${{ inputs.split }}
+          --prompts ${{ inputs.prompts }} --models ${{ inputs.models }} --repeats ${{ inputs.repeats }}
+          ${{ inputs.provider == 'replay' && '--replay' || '' }} ${{ inputs.split == 'test' && '--final' || '' }}
+          --max-cells ${{ inputs.max_cells }} --out bench-out/results.jsonl --md bench-out/table.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ github.run_id }}
+          path: apps/api/bench-out/

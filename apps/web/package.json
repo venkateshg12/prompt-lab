@@ -11,6 +11,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@repo/scoring": "workspace:^",
     "@repo/types": "workspace:^",
     "@tanstack/react-query": "^5",
     "@tanstack/react-query-devtools": "^5",

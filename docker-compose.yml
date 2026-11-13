@@ -32,6 +32,67 @@ services:
     command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy volatile-lru
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 5 }
 
+  # ── `app` profile (Phase 29): the production images against the services above ───────────────
+  # docker compose --profile app up -d --build. The fake provider by default: nothing here can spend
+  # money unless you set LLM_PROVIDER=live and a key in a `.env` next to this file (on WSL2, docker.exe
+  # ignores variables set on the command line, so overrides go in that file).
+  api:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    container_name: promptlab-api
+    environment: &app-env
+      NODE_ENV: production
+      PORT: "5000"
+      LOG_LEVEL: info
+      SERVICE_NAME: prompt-lab-api
+      CORS_ORIGIN: http://localhost:3000
+      CLIENT_URL: http://localhost:3000
+      DATABASE_URL: postgresql://promptlab:promptlab@postgres:5432/promptlab
+      JWT_SECRET: ${JWT_SECRET:-compose-local-jwt-secret-0123456789-abcdefgh}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-compose-local-refresh-secret-0123456789-abcd}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-compose-local}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_REDIS_HOST: redis-cache
+      CACHE_REDIS_PORT: "6379"
+      CACHE_ENABLED: "true"
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      MODELS_SEED: ${MODELS_SEED:-test}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      RUN_WORKERS_IN_API: "false"
+      OWNER_RUNS_REQUIRE_ADMIN: ${OWNER_RUNS_REQUIRE_ADMIN:-false}
+      ENABLE_QUEUE_DASHBOARD: "false"
+      # Local only: the production images set Secure cookies, which a plain-http localhost can't keep.
+      # Sign-in from the compose web needs the dev servers; this profile proves the images, migrations and workers.
+    ports: ["5000:5000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 10s, timeout: 5s, retries: 12 }
+
+  worker:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    container_name: promptlab-worker
+    command: ["node", "dist/worker.js"] # never migrates: the api container does, once
+    environment:
+      <<: *app-env
+      WORKER_PORT: "8080"
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args: { NEXT_PUBLIC_API_URL: "http://localhost:5000", NEXT_PUBLIC_GOOGLE_CLIENT_ID: "compose-local" }
+    container_name: promptlab-web
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_started }
+
 volumes:
   postgres_data:
   redis_data:

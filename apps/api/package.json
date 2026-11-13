@@ -21,7 +21,12 @@
     "import-cases": "tsx src/scripts/import-cases.ts",
     "test": "vitest run",
     "db:seed-models": "tsx src/scripts/seed-models.ts",
-    "bench": "tsx src/scripts/bench.ts"
+    "bench": "tsx src/scripts/bench.ts",
+    "export-run": "tsx src/scripts/export-run.ts",
+    "test:int": "vitest run --config vitest.integration.config.mts",
+    "promote-admin": "tsx src/scripts/promote-admin.ts",
+    "readme:update": "tsx src/scripts/update-readme.ts",
+    "readme:check": "tsx src/scripts/update-readme.ts --check"
   },
   "dependencies": {
     "@bull-board/api": "^8.1.2",
@@ -52,6 +57,8 @@
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.1",
+    "@testcontainers/redis": "^12.2.1",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -60,8 +67,11 @@
     "@types/node": "^25.9.3",
     "@types/pg": "^8",
     "@types/proxy-addr": "^2.0.3",
+    "@types/supertest": "^7.2.1",
     "eslint": "^9.39.1",
     "pino-pretty": "^13.2.0",
+    "supertest": "^7.3.1",
+    "testcontainers": "^12.2.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"

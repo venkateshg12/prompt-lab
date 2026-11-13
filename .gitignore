@@ -88,6 +88,11 @@ storybook-static/
 !docs/reference/**/*.md
 !cases/**/prompts/*.md
 !cases/**/prompts/**/*.md
+# Case deliverables the phases commit: LABELLING, SOURCES, AGREEMENT, EXPERIMENT (24-25), HANDOFF, RETEST (27)
+!cases/**/*.md
+# The deploy runbook (Phase 29) and the decision records (Phase 30)
+!docs/*.md
+!docs/adr/*.md
 
 # Prisma client is generated on install (Phase 03)
 apps/api/src/generated/
@@ -98,3 +103,6 @@ apps/api/out/
 playwright-report/
 test-results/
 blob-report/
+
+# Phase 24: real company names seen while anonymising (read by check-public.ts, never committed)
+.private-names.txt
