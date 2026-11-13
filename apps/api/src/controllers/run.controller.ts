@@ -8,7 +8,7 @@ import { OWNER_RUNS_REQUIRE_ADMIN } from "../constants/env";
 import { prisma } from "../db/prisma";
 import { createRun, detectTestReuse, planRun } from "../runner/createRun";
 import { cancelRun, getRun, listRuns, toRunDto } from "../services/run.service";
-import { assertRescorable, getRunSummary, listResults } from "../services/results.service";
+import { assertRescorable, compareResults, getRunSummary, listResults, resultFacets } from "../services/results.service";
 import { datasetHashOf } from "../runner/dataset";
 import { runTotals } from "../runner/totals";
 import { maintenanceQueue } from "../jobs/queues/maintenance.queue";
@@ -100,11 +100,20 @@ export const runResultsHandler = catchError(async (req, res) => {
             variant: idSchema("variant id").optional(),
             field: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).optional(),
             reason: z.enum(["match", "mismatch", "partial", "missing", "wrong_type", "null_expected", "null_predicted", "currency_mismatch", "out_of_tolerance"]).optional(),
+            tag: tagSchema.optional(),
             failedOnly: z.enum(["true", "false"]).optional(),
         })
         .parse(req.query);
-    const { items, meta } = await listResults(req.orgId, runId(req), { ...q, failedOnly: q.failedOnly === "true" });
-    res.status(OK).json(ok(items, meta));
+    const id = runId(req);
+    const { items, meta } = await listResults(req.orgId, id, { ...q, failedOnly: q.failedOnly === "true" });
+    // Facets ride on the first page only: the chips don't change while you scroll.
+    const facets = q.variant && !q.cursor ? await resultFacets(req.orgId, id, q.variant, q.field) : undefined;
+    res.status(OK).json(ok(items, { ...meta, ...(facets ? { facets } : {}) }));
+});
+
+export const compareResultsHandler = catchError(async (req, res) => {
+    const q = z.object({ example: z.string().min(1).max(64), a: idSchema("variant a"), b: idSchema("variant b") }).parse(req.query);
+    res.status(OK).json(ok(await compareResults(runId(req), q.example, q.a, q.b)));
 });
 
 // Re-score from the stored raw outputs with the CURRENT rules and labels: no model calls. The job id

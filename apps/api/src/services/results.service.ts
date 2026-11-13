@@ -5,7 +5,10 @@ import { cache } from "../utils/cache";
 import { appAssert } from "../utils/errors";
 import { CONFLICT, NOT_FOUND } from "../constants/https";
 import { datasetHashOf } from "../runner/dataset";
+import { withTransaction } from "../utils/db/transaction";
 import { toRunDto } from "./run.service";
+import { publishProgress } from "../utils/events/pubsub";
+import { judgeStats } from "./judge.service";
 import type { Result } from "../generated/prisma/client";
 
 /* The columns aggregation needs: NOT rawOutput / extractedText, the big ones. */
@@ -46,7 +49,7 @@ export const writeVariantSummaries = async (runId: string, fields: FieldRule[]) 
     }
 };
 
-export type SummaryResponse = Awaited<ReturnType<typeof computeSummary>> & { stale: { rules: boolean; labels: boolean } };
+export type SummaryResponse = Awaited<ReturnType<typeof computeSummary>> & { stale: { rules: boolean; labels: boolean }; judge: Awaited<ReturnType<typeof judgeStats>> };
 
 const computeSummary = async (runId: string, tag?: string) => {
     const run = await prisma.run.findUnique({
@@ -64,9 +67,14 @@ const computeSummary = async (runId: string, tag?: string) => {
     const stored = !tag && run.status === "completed" && run.variants.every((v) => v.summary);
     const rows = stored ? null : byVariant(await prisma.result.findMany({ where: { runId, ...(tag ? { example: { tags: { has: tag } } } : {}) }, select: LITE_SELECT }));
 
+    // The run's tags, for the subset picker: every tag on the run's split, the internal "_unsplit" excluded.
+    const tagRows = await prisma.example.findMany({ where: { taskId: run.taskId, split: run.split }, select: { tags: true } });
+    const tags = [...new Set(tagRows.flatMap((e) => e.tags))].filter((t) => t !== "_unsplit").sort();
+
     return {
         run: toRunDto(run),
         tag: tag ?? null,
+        tags,
         variants: run.variants.map((v) => ({
             variantId: v.id,
             promptVersion: `${v.promptVersion.key}@${v.promptVersion.version}`,
@@ -98,12 +106,42 @@ export const getRunSummary = async (orgId: string, runId: string, tag?: string):
     appAssert(run, NOT_FOUND, "Run not found");
     const key = await cache.versionedKey(["runs"], `org:${orgId}:run:${runId}:summary:${tag ?? "*"}`);
     const summary = await cache.getOrSet(key, () => computeSummary(runId, tag), run.status === "completed" ? 3600 : 10);
-    return { ...summary, stale: await staleness(runId) };
+    // The judge is read live and kept apart from the scores (Phase 26): never part of `overall`.
+    return { ...summary, stale: await staleness(runId), judge: await judgeStats(runId) };
 };
 
 /* ── The error browser's feed ─────────────────────────────────────────────────────────────────── */
 
-export type ResultsQuery = { variant?: string; field?: string; reason?: string; failedOnly?: boolean; cursor?: string; limit: number };
+export type ResultsQuery = { variant?: string; field?: string; reason?: string; tag?: string; failedOnly?: boolean; cursor?: string; limit: number };
+
+/*
+  Facets for the error browser's chips: failing results of one variant, counted by reason (for the chosen
+  field) and by example tag. Raw SQL, so it filters on org_id ITSELF (the tenant extension can't see it).
+  Cached 60 s under the `runs` domain; rescore and finalize bump it.
+ */
+export const resultFacets = async (orgId: string, runId: string, variant: string, field?: string) => {
+    const key = await cache.versionedKey(["runs"], `org:${orgId}:run:${runId}:facets:${variant}:${field ?? "*"}`);
+    return cache.getOrSet(key, async () => {
+        const reasons = field
+            ? await prisma.$queryRaw<{ reason: string; n: number }[]>(Prisma.sql`
+                SELECT f->>'reason' AS reason, count(*)::int AS n
+                FROM results r, jsonb_array_elements(r.field_scores) f
+                WHERE r.run_id = ${runId}::uuid AND r.org_id = ${orgId}::uuid AND r.variant_id = ${variant}::uuid
+                  AND f->>'key' = ${field} AND (f->>'score')::float < 1
+                GROUP BY 1 ORDER BY n DESC, reason`)
+            : [];
+        const failing = field
+            ? Prisma.sql`EXISTS (SELECT 1 FROM jsonb_array_elements(r.field_scores) f WHERE f->>'key' = ${field} AND (f->>'score')::float < 1)`
+            : Prisma.sql`(r.status = 'error' OR (r.status = 'scored' AND r.exact_match = false))`;
+        const tags = await prisma.$queryRaw<{ tag: string; n: number }[]>(Prisma.sql`
+            SELECT t AS tag, count(*)::int AS n
+            FROM results r JOIN examples e ON e.id = r.example_id AND e.org_id = ${orgId}::uuid, unnest(e.tags) t
+            WHERE r.run_id = ${runId}::uuid AND r.org_id = ${orgId}::uuid AND r.variant_id = ${variant}::uuid
+              AND t <> '_unsplit' AND ${failing}
+            GROUP BY 1 ORDER BY n DESC, tag`);
+        return { reasons, tags };
+    }, 60);
+};
 
 const encodeCursor = (r: { overallScore: number | null; id: string }) => Buffer.from(JSON.stringify({ s: r.overallScore, id: r.id })).toString("base64url");
 const decodeCursor = (raw?: string): { s: number | null; id: string } | null => {
@@ -148,6 +186,7 @@ export const listResults = async (orgId: string, runId: string, q: ResultsQuery,
         where: {
             runId,
             ...(q.variant ? { variantId: q.variant } : {}),
+            ...(q.tag ? { example: { tags: { has: q.tag } } } : {}),
             ...(q.failedOnly ? { OR: [{ status: "error" }, { status: "scored", exactMatch: false }] } : {}),
             ...idFilter,
             ...(cursor ? { AND: [after] } : {}),
@@ -157,34 +196,65 @@ export const listResults = async (orgId: string, runId: string, q: ResultsQuery,
         include: { example: { select: { ref: true, tags: true, input: true, expected: true, publicInput: true } }, variant: { include: { promptVersion: { select: { key: true, version: true } }, model: { select: { key: true } } } } },
     });
     const hasMore = rows.length > q.limit;
-    const items = (hasMore ? rows.slice(0, q.limit) : rows).map((r) => ({
+    const items = (hasMore ? rows.slice(0, q.limit) : rows).map((r) => {
+      /*
+        A published page never shows anything derived from an input its owner marked private: not the
+        input, not the raw/extracted/parsed output, not the per-field values (a model can echo the posting,
+        found by publish.int.test), not the label. Scores and reasons stay: they reveal no text.
+       */
+      const hidden = Boolean(opts.publicView && !r.example.publicInput);
+      return {
         id: r.id,
         variantId: r.variantId,
         promptVersion: `${r.variant.promptVersion.key}@${r.variant.promptVersion.version}`,
         modelKey: r.variant.model.key,
         exampleRef: r.example.ref,
         tags: r.example.tags.filter((t) => t !== "_unsplit"),
-        // A published page never shows an input its owner marked private (Phase 22 reuses this with publicView).
-        input: opts.publicView && !r.example.publicInput ? "[hidden]" : r.example.input,
-        expected: r.example.expected,
+        input: hidden ? null : r.example.input,
+        inputHidden: hidden,
+        expected: hidden ? null : r.example.expected,
         repeat: r.repeatIndex,
         status: r.status,
-        rawOutput: r.rawOutput,
-        parsedJson: opts.publicView && !r.example.publicInput ? null : r.parsedJson,
+        rawOutput: hidden ? null : r.rawOutput,
+        extractedText: hidden ? null : r.extractedText,
+        parsedJson: hidden ? null : r.parsedJson,
         validJson: r.validJson,
         schemaValid: r.schemaValid,
         exactMatch: r.exactMatch,
         overallScore: r.overallScore,
         fieldScores: r.fieldScores,
-        fieldDetails: r.fieldDetails,
+        fieldDetails: hidden ? null : r.fieldDetails,
         latencyMs: r.latencyMs,
         costUsdMicros: r.costUsdMicros,
+        inputTokens: r.inputTokens,
         outputTokens: r.outputTokens,
+        finishReason: r.finishReason,
         attempts: r.attempts,
         error: r.error,
-    }));
+      };
+    });
     const last = items[items.length - 1];
     return { items, meta: { hasMore, nextCursor: hasMore && last ? encodeCursor(last) : null } };
+};
+
+/* ── Side-by-side: one example, two variants, every repeat ───────────────────────────────────── */
+
+export const compareResults = async (runId: string, exampleRef: string, a: string, b: string) => {
+    const run = await prisma.run.findUnique({ where: { id: runId }, select: { id: true, taskId: true } });
+    appAssert(run, NOT_FOUND, "Run not found");
+    const example = await prisma.example.findUnique({ where: { taskId_ref: { taskId: run.taskId, ref: exampleRef } }, select: { id: true, ref: true, input: true, expected: true, tags: true } });
+    appAssert(example, NOT_FOUND, "Example not found");
+    const side = async (variantId: string) => {
+        const v = await prisma.runVariant.findFirst({ where: { id: variantId, runId }, include: { promptVersion: { select: { key: true, version: true } }, model: { select: { key: true, label: true } } } });
+        appAssert(v, NOT_FOUND, "Variant not found");
+        const results = await prisma.result.findMany({
+            where: { runId, variantId, exampleId: example.id },
+            orderBy: { repeatIndex: "asc" },
+            select: { id: true, repeatIndex: true, status: true, rawOutput: true, extractedText: true, parsedJson: true, validJson: true, schemaValid: true, overallScore: true, fieldScores: true, fieldDetails: true, error: true },
+        });
+        return { variantId, promptVersion: `${v.promptVersion.key}@${v.promptVersion.version}`, modelKey: v.model.key, modelLabel: v.model.label, results };
+    };
+    return { example: { ...example, tags: example.tags.filter((t) => t !== "_unsplit") }, a: await side(a), b: await side(b) };
 };
 
 /* ── Re-scoring: stored raw output + current rules and labels, no model call ─────────────────── */
@@ -204,18 +274,20 @@ export const rescoreRun = async (runId: string): Promise<{ rescored: number; cha
     const technique = new Map(run.variants.map((v) => [v.id, v.promptVersion.technique]));
     let rescored = 0;
     let changed = 0;
+    const changedRefs = new Set<string>();
     let after: string | undefined;
     for (;;) {
-        const batch: (Pick<Result, "id" | "variantId" | "rawOutput" | "overallScore"> & { example: { expected: unknown } })[] = await prisma.result.findMany({
+        const batch: (Pick<Result, "id" | "variantId" | "rawOutput" | "overallScore"> & { example: { expected: unknown; ref: string } })[] = await prisma.result.findMany({
             where: { runId, status: "scored", rawOutput: { not: null }, ...(after ? { id: { gt: after } } : {}) },
             orderBy: { id: "asc" },
             take: 500,
-            select: { id: true, variantId: true, rawOutput: true, overallScore: true, example: { select: { expected: true } } },
+            select: { id: true, variantId: true, rawOutput: true, overallScore: true, example: { select: { expected: true, ref: true } } },
         });
         if (batch.length === 0) break;
-        for (const r of batch) {
+        // One transaction per batch: a crash leaves whole batches done or not, and the job can simply run again.
+        await withTransaction(async (tx) => { for (const r of batch) {
             const s = scoreOutput({ rawText: r.rawOutput!, technique: technique.get(r.variantId)!, fields, expected: r.example.expected as Record<string, unknown> });
-            await prisma.result.update({
+            await tx.result.update({
                 where: { id: r.id },
                 data: {
                     extractedText: s.extractedText,
@@ -227,14 +299,23 @@ export const rescoreRun = async (runId: string): Promise<{ rescored: number; cha
                 },
             });
             rescored++;
-            if (r.overallScore !== s.overallScore) changed++;
-        }
+            if (r.overallScore !== s.overallScore) {
+                changed++;
+                changedRefs.add(r.example.ref);
+            }
+        } });
         after = batch[batch.length - 1]!.id;
     }
-    // The stored scores now reflect the CURRENT rules and labels: say so on the run.
+    // The stored scores now reflect the CURRENT rules and labels: say so on the run, with the refs that moved.
     const examples = await prisma.example.findMany({ where: { taskId: run.taskId, split: run.split }, select: { ref: true, revision: true } });
-    await prisma.run.update({ where: { id: runId }, data: { taskVersion: run.task.version, datasetHash: datasetHashOf(examples) } });
+    const note = `re-scored ${new Date().toISOString().slice(0, 10)} with task v${run.task.version}; changed: ${changedRefs.size ? [...changedRefs].sort().join(", ") : "none"}`;
+    await prisma.run.update({
+        where: { id: runId },
+        data: { taskVersion: run.task.version, datasetHash: datasetHashOf(examples), notes: run.notes ? `${run.notes}\n${note}` : note },
+    });
     await writeVariantSummaries(runId, fields);
-    await cache.bump("runs");
+    await cache.bump("runs", "published");
+    const fresh = await prisma.run.findUnique({ where: { id: runId }, select: { status: true, doneCells: true, errorCells: true, totalCells: true } });
+    if (fresh) await publishProgress({ runId, ...fresh, rescored: true });
     return { rescored, changed };
 };
