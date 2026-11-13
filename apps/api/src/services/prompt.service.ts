@@ -50,6 +50,7 @@ export const getPrompt = async (taskId: string, id: string) => {
 
 /** Latest version per key, with the history of earlier versions. */
 export const listPrompts = async (taskId: string) => {
+    await getTask(taskId); // 404 for another workspace's task, not an empty list
     const all = await prisma.promptVersion.findMany({ where: { taskId }, orderBy: [{ key: "asc" }, { version: "desc" }] });
     const byKey = new Map<string, PromptVersion[]>();
     for (const p of all) byKey.set(p.key, [...(byKey.get(p.key) ?? []), p]);

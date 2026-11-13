@@ -33,4 +33,16 @@ export const TENANT_ROUTES = [
     { method: "get", path: "/orgs/:orgId/runs/:runId/results" },
     { method: "post", path: "/orgs/:orgId/runs/:runId/rescore", body: {} },
     { method: "post", path: "/orgs/:orgId/runs/estimate", body: {} },
+    // Phases 21–26
+    { method: "get", path: "/orgs/:orgId/runs/:runId/compare?example=x&a=:runId&b=:runId" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/export/results.jsonl" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/export/results.csv" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/export/summary.csv" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/export/markdown" },
+    { method: "post", path: "/orgs/:orgId/runs/:runId/publish", body: {} },
+    { method: "delete", path: "/orgs/:orgId/runs/:runId/publish" },
+    { method: "get", path: "/orgs/:orgId/runs/published" },
+    { method: "post", path: "/orgs/:orgId/runs/:runId/judge", body: { modelKey: "fake:text" } },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/judge" },
+    { method: "get", path: "/orgs/:orgId/runs/:runId/judge/validation" },
 ] as const;

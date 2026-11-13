@@ -51,7 +51,7 @@ export const agreementHandler = catchError(async (req, res) => {
 
 export const exportExamplesHandler = catchError(async (req, res) => {
     const split = req.query.split === "dev" || req.query.split === "test" ? req.query.split : undefined;
-    const body = await exportExamples(taskId(req), { split, publicOnly: req.query.public === "true" });
+    const body = await exportExamples(taskId(req), { split, publicOnly: req.query.public === "true" || req.query.publicOnly === "true" });
     res.status(OK).type("application/x-ndjson").send(body);
 });
 

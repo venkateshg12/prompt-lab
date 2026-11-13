@@ -170,6 +170,7 @@ export const listExamples = async (
     query: { split?: "dev" | "test"; tag?: string; q?: string; cursor?: string; limit: number },
     role: OrgRole
 ) => {
+    await getTask(taskId); // a task of another workspace is a 404, not an empty list (tenancy.int)
     const where: Prisma.ExampleWhereInput = {
         taskId,
         ...(query.split ? { split: query.split } : {}),
@@ -351,6 +352,7 @@ export const agreement = async (taskId: string) => {
 };
 
 export const exportExamples = async (taskId: string, opts: { split?: "dev" | "test"; publicOnly?: boolean }) => {
+    await getTask(taskId);
     const rows = await prisma.example.findMany({
         where: { taskId, ...(opts.split ? { split: opts.split } : {}) },
         orderBy: { ref: "asc" },
