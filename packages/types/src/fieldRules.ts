@@ -10,7 +10,9 @@ export const PERIOD_TO_YEAR: Record<Period, number> = { hour: 2080, day: 260, we
 
 export const fieldRuleSchema = z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("text"), key, description, nullable: z.boolean().default(true) }),
-    z.object({ kind: z.literal("enum"), key, description, values: z.array(z.string().min(1)).min(2).max(30) }),
+    // `nullable` is opt-in (default false, so existing tasks are unchanged): reasoning-mini labels the field
+    // that doesn't apply to a question as null (Phase 25).
+    z.object({ kind: z.literal("enum"), key, description, values: z.array(z.string().min(1)).min(2).max(30), nullable: z.boolean().default(false) }),
     z.object({
         kind: z.literal("integer"), key, description,
         nullable: z.boolean().default(true),
@@ -54,8 +56,10 @@ export const valueSchemaFor = (rule: FieldRule): z.ZodType => {
     switch (rule.kind) {
         case "text":
             return rule.nullable ? z.string().nullable() : z.string();
-        case "enum":
-            return z.enum(rule.values as [string, ...string[]]);
+        case "enum": {
+            const e = z.enum(rule.values as [string, ...string[]]);
+            return rule.nullable ? e.nullable() : e;
+        }
         case "integer": {
             let n = z.number().int();
             if (rule.min !== undefined) n = n.min(rule.min);
@@ -86,7 +90,7 @@ export const fieldsList = (rules: FieldRule[]): string =>
                 case "text":
                     return `- ${r.key}: string${nullNote(r.nullable)}${d}`;
                 case "enum":
-                    return `- ${r.key}: one of ${r.values.map((v) => `"${v}"`).join(", ")}${d}`;
+                    return `- ${r.key}: one of ${r.values.map((v) => `"${v}"`).join(", ")}${nullNote(r.nullable)}${d}`;
                 case "integer":
                     return `- ${r.key}: integer${nullNote(r.nullable)}${d}`;
                 case "boolean":

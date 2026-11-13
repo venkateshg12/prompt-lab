@@ -68,6 +68,8 @@ export const runProgressSchema = z.object({
     // Present on throttled live messages: counted from the database, never by adding up messages.
     skippedCells: z.number().int().optional(),
     costUsdMicros: z.number().int().optional(),
+    // Phase 21: set on the message rescore sends, so open pages reload the summary and the error feed.
+    rescored: z.boolean().optional(),
     at: z.string(),
 });
 export type RunProgress = z.infer<typeof runProgressSchema>;

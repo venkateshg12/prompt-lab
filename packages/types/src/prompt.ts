@@ -37,7 +37,8 @@ export const promptBodySchema = z
     .object({
         key: promptKeySchema,
         technique: z.enum(TECHNIQUES),
-        system: templateText,
+        // Empty is allowed: the Playbook's v0-vague is one user message with no system prompt (Phase 25).
+        system: z.literal("").or(templateText),
         template: templateText.refine((t) => /{{\s*input\s*}}/.test(t), "The template must contain {{input}}"),
         fewShotExampleIds: z.array(idSchema("example id")).max(8).default([]),
         notes: z.string().max(4000).nullable().optional(),

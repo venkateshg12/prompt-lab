@@ -10,3 +10,6 @@ export * from "./caseLine";
 export * from "./prompt";
 export * from "./model";
 export * from "./run";
+export * from "./export";
+export * from "./demo";
+export * from "./judge";
