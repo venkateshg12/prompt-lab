@@ -343,7 +343,10 @@ model Run {
   // Moves with every counter update: the stale-run sweeper looks for runs that stopped progressing.
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   finishedAt      DateTime? @map("finished_at") @db.Timestamptz(3)
-  // Phase 22: publishedSlug, publishedAt, publishOptions
+  // Phase 22: a published run is public and read-only at /r/<publishedSlug> (r_ + 10 base62, unguessable).
+  publishedSlug   String?   @unique @map("published_slug")
+  publishedAt     DateTime? @map("published_at") @db.Timestamptz(3)
+  publishOptions  Json?     @map("publish_options") // { title, includeNotes }
 
   task     Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   variants RunVariant[]
@@ -395,7 +398,7 @@ model Result {
   finishReason  String?      @map("finish_reason")
   attempts      Int          @default(1)
   error         String? // also skip reasons: "structured_unsupported", "cancelled"
-  // Phase 26: judge Json?
+  judge         Json? // Phase 26: the LLM judge's verdict, apart from the scores (StoredJudge in @repo/types)
   completedAt   DateTime     @default(now()) @map("completed_at") @db.Timestamptz(3)
 
   run     Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
