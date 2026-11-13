@@ -5,6 +5,11 @@ import { useGetProfile } from "@/hooks/auth/useGetProfile";
 import { clearUserQueries } from "@/lib/queryClient";
 import { useAuthStore } from "@/store/auth.store";
 import { useServerStore } from "@/store/server.store";
+import { usePathname } from "next/navigation";
+
+/* Published runs and the BYOK demo are public: they render (and server-render) without waiting for a session. */
+const PUBLIC_PREFIXES = ["/r/", "/demo"];
+export const isPublicPath = (path: string | null) => path === "/r" || PUBLIC_PREFIXES.some((p) => path?.startsWith(p));
 
 interface AuthLoaderProps {
   children: React.ReactNode;
@@ -17,6 +22,7 @@ const AuthLoader: React.FC<AuthLoaderProps> = ({ children }) => {
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped);
   const isServerWaking = useServerStore((state) => state.status === "waking");
 
+  const isPublic = isPublicPath(usePathname());
   const [isRevealed, setIsRevealed] = useState(false);
   if (isServerWaking && !isRevealed) setIsRevealed(true);
 
@@ -35,7 +41,7 @@ const AuthLoader: React.FC<AuthLoaderProps> = ({ children }) => {
     }
   }, [isSuccess, isError, data, setUser, clearAuth]);
 
-  if (!isBootstrapped && isLoading && !isRevealed) {
+  if (!isPublic && !isBootstrapped && isLoading && !isRevealed) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white text-zinc-900 z-[9999] p-6 text-center select-none overflow-hidden transition-opacity duration-1000">
         <div className="relative mb-10 h-32 w-32 flex items-center justify-center scale-90 md:scale-100">
