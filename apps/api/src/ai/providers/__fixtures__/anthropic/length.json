@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "body": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"title\": \"Eng"
+      }
+    ],
+    "stop_reason": "max_tokens",
+    "usage": {
+      "input_tokens": 650,
+      "output_tokens": 800
+    }
+  }
+}

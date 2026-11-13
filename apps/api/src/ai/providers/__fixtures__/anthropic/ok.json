@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "body": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"title\": \"Engineer\"}"
+      }
+    ],
+    "stop_reason": "end_turn",
+    "usage": {
+      "input_tokens": 650,
+      "output_tokens": 38
+    }
+  }
+}

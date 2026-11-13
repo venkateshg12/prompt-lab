@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "choices": [
+      {
+        "message": {
+          "content": "{\"title\": \"Engineer\"}"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 812,
+      "completion_tokens": 64
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "body": {
+    "choices": [
+      {
+        "message": {
+          "role": "assistant",
+          "content": "{\"title\": \"Engineer\"}"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 700,
+      "completion_tokens": 40
+    }
+  }
+}

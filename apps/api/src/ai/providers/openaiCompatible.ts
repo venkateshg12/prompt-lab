@@ -13,7 +13,8 @@ export const createOpenAiCompatible = (baseUrl: string): Provider => ({
         const q = model.quirks ?? {};
         const body: Record<string, unknown> = {
             model: model.modelId,
-            messages: [{ role: "system", content: req.system }, ...req.messages],
+            // No system message at all when the prompt has none (Phase 25's v0-vague), not an empty one.
+            messages: [...(req.system ? [{ role: "system", content: req.system }] : []), ...req.messages],
             [q.maxTokensParam ?? "max_tokens"]: req.maxTokens,
             ...(q.noTemperature ? {} : { temperature: req.temperature }),
             ...q.extraBody,

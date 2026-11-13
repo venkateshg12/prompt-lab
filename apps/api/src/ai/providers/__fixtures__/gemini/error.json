@@ -1,0 +1,10 @@
+{
+  "status": 410,
+  "body": {
+    "error": {
+      "code": 410,
+      "message": "models/old-model is retired",
+      "status": "NOT_FOUND"
+    }
+  }
+}

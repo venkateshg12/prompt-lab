@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "body": {
+    "choices": [
+      {
+        "message": {
+          "role": "assistant",
+          "content": "{\"title\":"
+        },
+        "finish_reason": "length"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 700,
+      "completion_tokens": 800
+    }
+  }
+}

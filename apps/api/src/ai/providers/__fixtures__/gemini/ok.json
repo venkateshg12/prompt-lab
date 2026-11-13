@@ -1,0 +1,26 @@
+{
+  "status": 200,
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "thinking...",
+              "thought": true
+            },
+            {
+              "text": "{\"title\": \"Engineer\"}"
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 600,
+      "candidatesTokenCount": 30,
+      "thoughtsTokenCount": 120
+    }
+  }
+}

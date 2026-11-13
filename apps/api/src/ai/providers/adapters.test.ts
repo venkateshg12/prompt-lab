@@ -56,6 +56,11 @@ describe("openaiCompatible", () => {
         expect(last.body.messages[0]).toEqual({ role: "system", content: "sys" });
         expect(adapter).toBeDefined();
     });
+    it("sends no system message at all when the prompt has none (v0-vague)", async () => {
+        await createOpenAiCompatible(base).complete(nim, { ...req, system: "" }, "good-key");
+        expect(seen.at(-1)!.body.messages).toEqual([{ role: "user", content: "hello" }]);
+    });
+
     it("sends nvext.guided_json for NVIDIA structured output and response_format for OpenAI", async () => {
         const live = createOpenAiCompatible(base);
         const structured = { name: "answer", schema: { type: "object" } };

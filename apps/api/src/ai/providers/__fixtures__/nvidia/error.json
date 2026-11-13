@@ -1,0 +1,8 @@
+{
+  "status": 403,
+  "body": {
+    "status": 403,
+    "title": "Forbidden",
+    "detail": "Authorization failed for nvapi-ABCDEFGHIJKLMNOPQRSTUVWX"
+  }
+}

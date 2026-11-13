@@ -1,0 +1,21 @@
+{
+  "status": 200,
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "{\"title\""
+            }
+          ]
+        },
+        "finishReason": "MAX_TOKENS"
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 600,
+      "candidatesTokenCount": 800
+    }
+  }
+}

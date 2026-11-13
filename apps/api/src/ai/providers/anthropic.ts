@@ -9,7 +9,7 @@ export const anthropicProvider: Provider = {
     async complete(model, req, apiKey) {
         const body: Record<string, unknown> = {
             model: model.modelId,
-            system: req.system,
+            ...(req.system ? { system: req.system } : {}),
             messages: req.messages,
             max_tokens: req.maxTokens,
             temperature: req.temperature,

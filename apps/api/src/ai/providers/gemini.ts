@@ -19,7 +19,7 @@ export const geminiProvider: Provider = {
             method: "POST",
             headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
             body: JSON.stringify({
-                systemInstruction: { parts: [{ text: req.system }] },
+                ...(req.system ? { systemInstruction: { parts: [{ text: req.system }] } } : {}),
                 contents: req.messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
                 generationConfig,
             }),
