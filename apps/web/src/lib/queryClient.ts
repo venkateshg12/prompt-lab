@@ -55,7 +55,7 @@ const USER_SCOPED_KEYS = [
     "sessions",
     "org", "members", "invites",                           // Phase 10
     "tasks", "task", "examples", "agreement", "prompts", "prompt-preview",   // Phases 11–13, 19
-    "runs", "run", "run-summary", "results", "compare",    // Phases 17–21
+    "runs", "run", "run-summary", "results", "compare", "judge",   // Phases 17–21, 26
     "published-admin",                                     // Phase 22 (the owner's publish settings)
 ];
 // Not listed on purpose: `profile` (see above), the model registry `models` and public pages

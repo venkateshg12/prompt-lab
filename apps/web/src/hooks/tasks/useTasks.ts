@@ -10,7 +10,7 @@ export const useTasks = () => {
 
 export const useTask = (taskId: string) => {
   const { org } = useCurrentOrg();
-  return useQuery({ queryKey: ["task", org?.id, taskId], queryFn: () => getTask(org!.id, taskId), enabled: Boolean(org?.id) });
+  return useQuery({ queryKey: ["task", org?.id, taskId], queryFn: () => getTask(org!.id, taskId), enabled: Boolean(org?.id && taskId) });
 };
 
 export const useCreateTask = () => {
